@@ -447,8 +447,9 @@ class ChordProgressionApp {
       }
     });
 
-    // Play button
+    // Handle all clicks
     document.addEventListener('click', (e) => {
+      // Play button
       if (e.target.closest('.btn-play')) {
         this.togglePlayback();
         return;
