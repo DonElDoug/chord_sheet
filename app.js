@@ -1,656 +1,552 @@
-// ===== GLOBAL STATE =====
-let progression = {
-  title: "Untitled Song",
-  artist: "",
-  key: "C",
-  timeSignature: "4/4",
-  bpm: 120,
-  displayMode: "roman",
-  sections: []
-};
+/**
+ * Chord Progression Application
+ * 
+ * A vanilla JS web app for creating, playing, and sharing chord progressions.
+ * Features:
+ * - Section-based arrangement
+ * - 4x4 grid for bars and slots
+ * - Inline, context-aware chord editing (left-click for root, right-click for extension)
+ * - Web Audio API playback with BPM and Key control
+ * - LocalStorage persistence
+ * - JSON Import/Export
+ * - Clean, modern, dark UI
+ */
 
-let isPlaying = false;
-let currentBar = 0;
-let playInterval = null;
-let audioContext = null;
-
-// ===== CORE FUNCTIONALITY =====
+// ===== APPLICATION CLASS =====
 class ChordProgressionApp {
   constructor() {
+    this.progression = this.getDefaultProgression();
+    this.isPlaying = false;
+    this.playInterval = null;
+    this.audioContext = null;
+    this.currentEdit = null;
     this.saveTimeout = null;
+    this.currentBarIndex = 0;
+
     this.init();
   }
 
   init() {
-    this.setupEventListeners();
-    this.loadFromStorage();
-    
-    // Add a default section if none exist
-    if (progression.sections.length === 0) {
-      this.addSection();
-    }
-    
-    this.render();
     this.initAudio();
-  }
-
-  // ===== AUDIO SYSTEM =====
-  initAudio() {
-    try {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {
-      console.warn('Web Audio API not supported');
-    }
-  }
-
-  playChord(chord) {
-    if (!audioContext) return;
+    this.loadFromStorage();
+    this.setupEventListeners();
     
-    const osc = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    
-    osc.connect(gain);
-    gain.connect(audioContext.destination);
-    
-    // Simple chord frequencies (C major as example)
-    const frequencies = this.getChordFrequencies(chord);
-    osc.frequency.setValueAtTime(frequencies[0], audioContext.currentTime);
-    
-    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-    
-    osc.start(audioContext.currentTime);
-    osc.stop(audioContext.currentTime + 0.5);
-  }
-
-  getChordFrequencies(chord) {
-    // Simplified chord-to-frequency mapping
-    const baseFreqs = {
-      'I': 261.63,   // C
-      'ii': 293.66,  // D
-      'iii': 329.63, // E  
-      'IV': 349.23,  // F
-      'V': 392.00,   // G
-      'vi': 440.00,  // A
-      'vii°': 493.88 // B
-    };
-    return [baseFreqs[chord] || 261.63];
-  }
-
-  // ===== PLAYBACK CONTROLS =====
-  togglePlayback() {
-    if (isPlaying) {
-      this.stopPlayback();
+    if (this.progression.sections.length === 0) {
+      this.addSection();
     } else {
-      this.startPlayback();
+      this.render();
     }
   }
 
-  startPlayback() {
-    if (!progression.sections.length) return;
-    
-    isPlaying = true;
-    this.updatePlayButton();
-    
-    const beatDuration = (60 / progression.bpm) * 1000; // ms per beat
-    const barDuration = beatDuration * 4; // 4/4 time
-    
-    let totalBars = 0;
-    progression.sections.forEach(section => {
-      totalBars += section.bars.length;
-    });
-    
-    if (totalBars === 0) return;
-    
-    currentBar = 0;
-    
-    playInterval = setInterval(() => {
-      this.highlightCurrentBar();
-      
-      // Get current chord and play it
-      const { chord } = this.getCurrentBarChord();
-      if (chord) {
-        this.playChord(chord.root);
-      }
-      
-      currentBar++;
-      if (currentBar >= totalBars) {
-        this.stopPlayback();
-      }
-    }, barDuration);
+  // ===== DATA & STATE MANAGEMENT =====
+  getDefaultProgression() {
+    return {
+      title: "Untitled Progression",
+      artist: "Artist Name",
+      key: "C",
+      bpm: 120,
+      sections: []
+    };
   }
 
-  stopPlayback() {
-    isPlaying = false;
-    currentBar = 0;
-    
-    if (playInterval) {
-      clearInterval(playInterval);
-      playInterval = null;
-    }
-    
-    this.updatePlayButton();
-    this.clearHighlights();
-  }
-
-  updatePlayButton() {
-    const playBtn = document.querySelector('.btn-play .play-icon');
-    if (playBtn) {
-      playBtn.textContent = isPlaying ? '⏸' : '▶';
-    }
-  }
-
-  // ===== DATA MANAGEMENT =====
   saveToStorage() {
-    // Debounce save operations for better performance
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-    }
-    
+    if (this.saveTimeout) clearTimeout(this.saveTimeout);
     this.saveTimeout = setTimeout(() => {
       try {
-        localStorage.setItem('chordProgression', JSON.stringify(progression));
+        localStorage.setItem('chordProgression', JSON.stringify(this.progression));
       } catch (e) {
-        console.warn('Could not save to localStorage');
+        console.error('Failed to save to localStorage:', e);
       }
-    }, 100);
+    }, 200);
   }
 
   loadFromStorage() {
     try {
       const saved = localStorage.getItem('chordProgression');
       if (saved) {
-        progression = { ...progression, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        // Basic validation to ensure we're not loading malformed data
+        if (parsed && Array.isArray(parsed.sections)) {
+          this.progression = { ...this.getDefaultProgression(), ...parsed };
+        }
       }
     } catch (e) {
-      console.warn('Could not load from localStorage');
+      console.error('Failed to load from localStorage:', e);
+      this.progression = this.getDefaultProgression();
     }
   }
 
-  exportJSON() {
-    const dataStr = JSON.stringify(progression, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `${progression.title || 'chord-progression'}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  }
-
-  importJSON() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const imported = JSON.parse(e.target.result);
-          progression = { ...progression, ...imported };
-          this.render();
-          this.saveToStorage();
-        } catch (err) {
-          alert('Invalid JSON file');
-        }
-      };
-      reader.readAsText(file);
-    };
-    
-    input.click();
-  }
-
-  // ===== SECTION MANAGEMENT =====
-  addSection() {
-    const section = {
-      id: Date.now().toString(),
-      name: `Section ${progression.sections.length + 1}`,
-      bars: []
-    };
-    
-    // Add 4 empty bars by default
-    for (let i = 0; i < 4; i++) {
-      section.bars.push(this.createEmptyBar());
-    }
-    
-    progression.sections.push(section);
-    this.render();
-    this.saveToStorage();
-  }
-
-  deleteSection(sectionId) {
-    progression.sections = progression.sections.filter(s => s.id !== sectionId);
-    this.render();
-    this.saveToStorage();
-  }
-
-  updateSectionName(sectionId, name) {
-    const section = progression.sections.find(s => s.id === sectionId);
-    if (section) {
-      section.name = name;
-      this.saveToStorage();
-    }
-  }
-
-  // ===== BAR MANAGEMENT =====
-  createEmptyBar() {
-    return {
-      id: Date.now().toString() + Math.random(),
-      chords: [null, null, null, null] // 4 slots per bar
-    };
-  }
-
-  addBar(sectionId) {
-    const section = progression.sections.find(s => s.id === sectionId);
-    if (section) {
-      section.bars.push(this.createEmptyBar());
-      this.render();
-      this.saveToStorage();
-    }
-  }
-
-  deleteBar(sectionId, barId) {
-    const section = progression.sections.find(s => s.id === sectionId);
-    if (section) {
-      section.bars = section.bars.filter(b => b.id !== barId);
-      this.render();
-      this.saveToStorage();
-    }
-  }
-
-  // ===== CHORD UTILITIES =====
-  romanToChordName(roman, key) {
-    const keyMap = {
-      'C': ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'B°'],
-      'C#': ['C#', 'D#m', 'E#m', 'F#', 'G#', 'A#m', 'B#°'],
-      'Db': ['Db', 'Ebm', 'Fm', 'Gb', 'Ab', 'Bbm', 'C°'],
-      'D': ['D', 'Em', 'F#m', 'G', 'A', 'Bm', 'C#°'],
-      'D#': ['D#', 'E#m', 'F##m', 'G#', 'A#', 'B#m', 'C##°'],
-      'Eb': ['Eb', 'Fm', 'Gm', 'Ab', 'Bb', 'Cm', 'D°'],
-      'E': ['E', 'F#m', 'G#m', 'A', 'B', 'C#m', 'D#°'],
-      'F': ['F', 'Gm', 'Am', 'Bb', 'C', 'Dm', 'E°'],
-      'F#': ['F#', 'G#m', 'A#m', 'B', 'C#', 'D#m', 'E#°'],
-      'Gb': ['Gb', 'Abm', 'Bbm', 'Cb', 'Db', 'Ebm', 'F°'],
-      'G': ['G', 'Am', 'Bm', 'C', 'D', 'Em', 'F#°'],
-      'G#': ['G#', 'A#m', 'B#m', 'C#', 'D#', 'E#m', 'F##°'],
-      'Ab': ['Ab', 'Bbm', 'Cm', 'Db', 'Eb', 'Fm', 'G°'],
-      'A': ['A', 'Bm', 'C#m', 'D', 'E', 'F#m', 'G#°'],
-      'A#': ['A#', 'B#m', 'C##m', 'D#', 'E#', 'F##m', 'G##°'],
-      'Bb': ['Bb', 'Cm', 'Dm', 'Eb', 'F', 'Gm', 'A°'],
-      'B': ['B', 'C#m', 'D#m', 'E', 'F#', 'G#m', 'A#°']
-    };
-
-    const romanMap = {
-      'I': 0, 'ii': 1, 'iii': 2, 'IV': 3, 'V': 4, 'vi': 5, 'vii°': 6
-    };
-
-    const chords = keyMap[key] || keyMap['C'];
-    const index = romanMap[roman];
-    
-    return index !== undefined ? chords[index] : roman;
-  }
-
-  // ===== CHORD MANAGEMENT =====
-  openChordSelector(sectionId, barId, slotIndex, element) {
-    this.closeAllSelectors();
-    this.currentEdit = { sectionId, barId, slotIndex };
-    
-    // Create chord selector
-    const selector = document.createElement('div');
-    selector.className = 'chord-selector active';
-    
-    // Use template literal for better performance
-    const chords = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
-    const optionsHTML = chords.map(chord => 
-      `<div class="chord-option" data-chord="${chord}">${chord}</div>`
-    ).join('') + '<div class="chord-option" data-chord="">Clear</div>';
-    
-    selector.innerHTML = `<div class="chord-options">${optionsHTML}</div>`;
-    
-    element.appendChild(selector);
-    
-    // Use event delegation for better performance
-    selector.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (e.target.classList.contains('chord-option')) {
-        const chord = e.target.dataset.chord;
-        if (chord) {
-          this.selectChord(chord);
-        } else {
-          this.deleteChord(sectionId, barId, slotIndex);
-        }
-        this.closeAllSelectors();
-      }
-    });
-  }
-
-  openExtensionSelector(sectionId, barId, slotIndex, element) {
-    this.closeAllSelectors();
-    this.currentEdit = { sectionId, barId, slotIndex };
-    
-    // Create extension selector
-    const selector = document.createElement('div');
-    selector.className = 'extension-selector active';
-    
-    // Use template literal for better performance
-    const extensions = ['7', '9', 'maj7', 'm7', 'sus2', 'sus4', 'add9', '6', '11', '13'];
-    const optionsHTML = extensions.map(ext => 
-      `<div class="extension-option" data-ext="${ext}">${ext}</div>`
-    ).join('');
-    
-    selector.innerHTML = `
-      <div class="extension-options">${optionsHTML}</div>
-      <div class="extension-clear" data-ext="">Clear Extension</div>
-    `;
-    
-    element.appendChild(selector);
-    
-    // Use event delegation for better performance
-    selector.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (e.target.classList.contains('extension-option') || e.target.classList.contains('extension-clear')) {
-        const extension = e.target.dataset.ext;
-        this.applyExtension(extension);
-        this.closeAllSelectors();
-      }
-    });
-  }
-
-  closeAllSelectors() {
-    document.querySelectorAll('.chord-selector, .extension-selector').forEach(el => {
-      el.remove();
-    });
-    this.currentEdit = null;
-  }
-
-  selectChord(chordSymbol) {
-    if (!this.currentEdit) return;
-    
-    const { sectionId, barId, slotIndex } = this.currentEdit;
-    const section = progression.sections.find(s => s.id === sectionId);
-    const bar = section?.bars.find(b => b.id === barId);
-    
-    if (bar) {
-      bar.chords[slotIndex] = {
-        root: chordSymbol,
-        extension: null,
-        slash: null
-      };
-    }
-    
-    this.render();
-    this.saveToStorage();
-  }
-
-  applyExtension(extension) {
-    if (!this.currentEdit) return;
-    
-    const { sectionId, barId, slotIndex } = this.currentEdit;
-    const section = progression.sections.find(s => s.id === sectionId);
-    const bar = section?.bars.find(b => b.id === barId);
-    const currentChord = bar?.chords[slotIndex];
-    
-    if (bar && currentChord) {
-      currentChord.extension = extension || null;
-      this.render();
-      this.saveToStorage();
-    } else if (bar && extension) {
-      // If no chord exists but extension is applied, create a I chord
-      bar.chords[slotIndex] = {
-        root: 'I',
-        extension: extension,
-        slash: null
-      };
-      this.render();
-      this.saveToStorage();
-    }
-  }
-
-  deleteChord(sectionId, barId, slotIndex) {
-    const section = progression.sections.find(s => s.id === sectionId);
-    const bar = section?.bars.find(b => b.id === barId);
-    
-    if (bar) {
-      bar.chords[slotIndex] = null;
-      this.render();
-      this.saveToStorage();
-    }
-  }
-
-  // ===== EVENT HANDLERS =====
-  setupEventListeners() {
-    // Song info updates
-    document.addEventListener('input', (e) => {
-      if (e.target.classList.contains('song-input')) {
-        const field = e.target.dataset.field;
-        progression[field] = e.target.value;
-        this.saveToStorage();
-      }
-    });
-
-    // Handle display mode change
-    document.addEventListener('change', (e) => {
-      if (e.target.id === 'displayMode') {
-        progression.displayMode = e.target.value;
+  updateProgressionField(field, value) {
+    if (field in this.progression) {
+      this.progression[field] = value;
+      if (field === 'key' || field === 'displayMode') {
         this.render();
-        this.saveToStorage();
       }
-      if (e.target.dataset.field === 'key') {
-        progression.key = e.target.value;
-        this.render();
-        this.saveToStorage();
-      }
-    });
-
-    // Handle all clicks
-    document.addEventListener('click', (e) => {
-      // Play button
-      if (e.target.closest('.btn-play')) {
-        this.togglePlayback();
-        return;
-      }
-      
-      // Add section
-      if (e.target.closest('.btn-add-section')) {
-        this.addSection();
-        return;
-      }
-
-      // Export/Import
-      if (e.target.closest('.btn-export')) {
-        this.exportJSON();
-        return;
-      }
-      if (e.target.closest('.btn-import')) {
-        this.importJSON();
-        return;
-      }
-
-      // Handle slot clicks (left click for chords)
-      const slot = e.target.closest('.slot');
-      if (slot && !e.target.closest('.delete-btn') && !e.target.closest('.chord-selector') && !e.target.closest('.extension-selector')) {
-        e.preventDefault();
-        e.stopPropagation();
-        const sectionId = slot.dataset.sectionId;
-        const barId = slot.dataset.barId;
-        const slotIndex = parseInt(slot.dataset.slotIndex);
-        
-        this.openChordSelector(sectionId, barId, slotIndex, slot);
-        return;
-      }
-
-      // Close selectors when clicking outside
-      if (!e.target.closest('.chord-selector') && !e.target.closest('.extension-selector')) {
-        this.closeAllSelectors();
-      }
-    });
-
-    // Right click for extensions
-    document.addEventListener('contextmenu', (e) => {
-      const slot = e.target.closest('.slot');
-      if (slot && !e.target.closest('.delete-btn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        const sectionId = slot.dataset.sectionId;
-        const barId = slot.dataset.barId;
-        const slotIndex = parseInt(slot.dataset.slotIndex);
-        
-        this.openExtensionSelector(sectionId, barId, slotIndex, slot);
-      }
-    });
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.closeAllSelectors();
-      }
-      if (e.key === ' ' && !e.target.matches('input, textarea, select')) {
-        e.preventDefault();
-        this.togglePlayback();
-      }
-    });
+      this.saveToStorage();
+    }
   }
 
-  // ===== RENDERING =====
-  render() {
-    this.renderSongInfo();
-    this.renderSections();
+  // ===== AUDIO SYSTEM =====
+  initAudio() {
+    try {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      console.warn('Web Audio API not supported. Playback will be disabled.');
+      alert('Your browser does not support the Web Audio API, so playback is disabled.');
+    }
   }
 
-  renderSongInfo() {
-    const titleInput = document.querySelector('input[data-field="title"]');
-    const artistInput = document.querySelector('input[data-field="artist"]');
-    const keySelect = document.querySelector('select[data-field="key"]');
-    const bpmInput = document.querySelector('input[data-field="bpm"]');
-    const displaySelect = document.getElementById('displayMode');
-
-    if (titleInput) titleInput.value = progression.title;
-    if (artistInput) artistInput.value = progression.artist;
-    if (keySelect) keySelect.value = progression.key;
-    if (bpmInput) bpmInput.value = progression.bpm;
-    if (displaySelect) displaySelect.value = progression.displayMode;
-  }
-
-  renderSections() {
-    const sectionsContainer = document.querySelector('.sections');
-    if (!sectionsContainer) return;
-
-    sectionsContainer.innerHTML = '';
-
-    progression.sections.forEach((section, sectionIndex) => {
-      const sectionEl = this.createSectionElement(section, sectionIndex);
-      sectionsContainer.appendChild(sectionEl);
-    });
-  }
-
-  createSectionElement(section, sectionIndex) {
-    const sectionEl = document.createElement('div');
-    sectionEl.className = 'section';
+  getNoteFrequency(note) {
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const key = this.progression.key.replace('b', '#'); // Normalize flats to sharps for simplicity
+    const keyIndex = notes.indexOf(key.endsWith('#') ? key.slice(0, 2) : key.slice(0, 1));
     
-    let barNumber = 1;
-    // Calculate starting bar number
-    for (let i = 0; i < sectionIndex; i++) {
-      barNumber += progression.sections[i].bars.length;
+    const noteIndex = notes.indexOf(note);
+    let octave = 4;
+    if (noteIndex < keyIndex) octave++;
+
+    return 440 * Math.pow(2, (noteIndex - 9 + (octave - 4) * 12) / 12);
+  }
+
+  getChordFrequencies(roman) {
+    const scaleDegrees = {
+      'I': 0, 'ii': 2, 'iii': 4, 'IV': 5, 'V': 7, 'vi': 9, 'vii°': 11
+    };
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const keyIndex = notes.indexOf(this.progression.key.charAt(0));
+
+    const rootDegree = scaleDegrees[roman];
+    if (rootDegree === undefined) return [];
+
+    const rootNoteIndex = (keyIndex + rootDegree) % 12;
+    const thirdNoteIndex = (rootNoteIndex + (roman === roman.toLowerCase() ? 3 : 4)) % 12; // Minor or Major third
+    const fifthNoteIndex = (rootNoteIndex + 7) % 12;
+
+    return [
+      this.getNoteFrequency(notes[rootNoteIndex]),
+      this.getNoteFrequency(notes[thirdNoteIndex]),
+      this.getNoteFrequency(notes[fifthNoteIndex])
+    ];
+  }
+
+  playChord(chord) {
+    if (!this.audioContext || !chord || !chord.root) return;
+    
+    const frequencies = this.getChordFrequencies(chord.root);
+    if (frequencies.length === 0) return;
+
+    const playTime = this.audioContext.currentTime;
+    const duration = (60 / this.progression.bpm) * 0.8; // Play for 80% of a beat
+
+    frequencies.forEach(freq => {
+      const osc = this.audioContext.createOscillator();
+      const gain = this.audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(this.audioContext.destination);
+
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.1, playTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, playTime + duration);
+
+      osc.start(playTime);
+      osc.stop(playTime + duration);
+    });
+  }
+
+  // ===== PLAYBACK CONTROLS =====
+  togglePlayback() {
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
     }
-
-    sectionEl.innerHTML = `
-      <div class="section-header">
-        <input 
-          type="text" 
-          class="section-name" 
-          value="${section.name}"
-          onchange="app.updateSectionName('${section.id}', this.value)"
-        >
-        <div class="section-controls">
-          <button class="btn btn-secondary" onclick="app.addBar('${section.id}')">+ Bar</button>
-          <button class="btn btn-secondary danger" onclick="app.deleteSection('${section.id}')">Delete</button>
-        </div>
-      </div>
-      <div class="section-bars">
-        ${section.bars.map((bar, barIndex) => 
-          this.createBarHTML(section.id, bar, barNumber + barIndex)
-        ).join('')}
-      </div>
-    `;
-
-    return sectionEl;
+    this.isPlaying ? this.stopPlayback() : this.startPlayback();
   }
 
-  createBarHTML(sectionId, bar, barNumber) {
-    return `
-      <div class="bar" data-bar-id="${bar.id}">
-        <div class="bar-number">${barNumber}</div>
-        <div class="bar-slots">
-          ${bar.chords.map((chord, slotIndex) => `
-            <div class="slot" data-section-id="${sectionId}" data-bar-id="${bar.id}" data-slot-index="${slotIndex}">
-              ${chord ? `
-                <div class="chord">
-                  ${progression.displayMode === 'roman' 
-                    ? chord.root 
-                    : this.romanToChordName(chord.root, progression.key)
-                  }
-                  ${chord.extension ? `<sup class="chord-extension">${chord.extension}</sup>` : ''}
-                  ${chord.slash ? `<span class="chord-slash">/${chord.slash}</span>` : ''}
-                </div>
-                <button class="delete-btn" onclick="event.stopPropagation(); app.deleteChord('${sectionId}', '${bar.id}', ${slotIndex})">×</button>
-              ` : '<div class="empty-slot">+</div>'}
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
+  startPlayback() {
+    const allBars = this.progression.sections.flatMap(s => s.bars);
+    if (allBars.length === 0) return;
 
-  // ===== PLAYBACK UTILITIES =====
-  getCurrentBarChord() {
-    let barIndex = 0;
-    for (const section of progression.sections) {
-      for (const bar of section.bars) {
-        if (barIndex === currentBar) {
-          return { chord: bar.chords.find(c => c) || null, bar };
-        }
-        barIndex++;
+    this.isPlaying = true;
+    this.updatePlayButton();
+    this.currentBarIndex = 0;
+
+    const beatDuration = 60 / this.progression.bpm;
+    const barDurationMs = beatDuration * 4 * 1000;
+
+    const tick = () => {
+      const bar = allBars[this.currentBarIndex];
+      this.highlightBar(bar.id);
+      
+      // Play the first valid chord in the bar
+      const chordToPlay = bar.chords.find(c => c);
+      if (chordToPlay) {
+        this.playChord(chordToPlay);
       }
+
+      this.currentBarIndex++;
+      if (this.currentBarIndex >= allBars.length) {
+        this.stopPlayback();
+      }
+    };
+
+    tick(); // Play first bar immediately
+    if (this.isPlaying) {
+      this.playInterval = setInterval(tick, barDurationMs);
     }
-    return { chord: null, bar: null };
   }
 
-  highlightCurrentBar() {
+  stopPlayback() {
+    this.isPlaying = false;
+    if (this.playInterval) {
+      clearInterval(this.playInterval);
+      this.playInterval = null;
+    }
+    this.updatePlayButton();
     this.clearHighlights();
+  }
+
+  updatePlayButton() {
+    const playBtn = document.getElementById('playBtn');
+    if (!playBtn) return;
     
-    let barIndex = 0;
-    for (const section of progression.sections) {
-      for (const bar of section.bars) {
-        if (barIndex === currentBar) {
-          const barEl = document.querySelector(`[data-bar-id="${bar.id}"]`);
-          if (barEl) {
-            barEl.style.boxShadow = '0 0 0 3px var(--accent)';
-          }
-          return;
-        }
-        barIndex++;
+    const playIcon = playBtn.querySelector('.play-icon-path');
+    const pauseIcon = playBtn.querySelector('.pause-icon-path');
+    const text = playBtn.querySelector('.play-text');
+
+    if (this.isPlaying) {
+      playBtn.classList.add('playing');
+      playIcon.style.display = 'none';
+      pauseIcon.style.display = 'block';
+      text.textContent = 'Pause';
+    } else {
+      playBtn.classList.remove('playing');
+      playIcon.style.display = 'block';
+      pauseIcon.style.display = 'none';
+      text.textContent = 'Play';
+    }
+  }
+
+  highlightBar(barId) {
+    this.clearHighlights();
+    const barEl = document.querySelector(`.bar[data-id="${barId}"]`);
+    if (barEl) {
+      // Highlight the first slot of the bar
+      const firstSlot = barEl.querySelector('.slot');
+      if (firstSlot) {
+        firstSlot.classList.add('playing');
       }
     }
   }
 
   clearHighlights() {
-    document.querySelectorAll('.bar').forEach(bar => {
-      bar.style.boxShadow = '';
+    document.querySelectorAll('.slot.playing').forEach(el => el.classList.remove('playing'));
+  }
+
+  // ===== DOM MANIPULATION & RENDERING =====
+  render() {
+    this.renderSongInfo();
+    this.renderSections();
+    this.saveToStorage();
+  }
+
+  renderSongInfo() {
+    document.getElementById('songTitle').value = this.progression.title;
+    document.getElementById('songArtist').value = this.progression.artist;
+    document.getElementById('keySelect').value = this.progression.key;
+    document.getElementById('bpmInput').value = this.progression.bpm;
+  }
+
+  renderSections() {
+    const sectionsContainer = document.querySelector('.sections');
+    sectionsContainer.innerHTML = '';
+    let globalBarIndex = 1;
+    this.progression.sections.forEach(section => {
+      const sectionEl = this.createSectionElement(section, globalBarIndex);
+      sectionsContainer.appendChild(sectionEl);
+      globalBarIndex += section.bars.length;
     });
+  }
+
+  createSectionElement(section, startingBarNum) {
+    const sectionEl = document.createElement('div');
+    sectionEl.className = 'section';
+    sectionEl.dataset.id = section.id;
+
+    sectionEl.innerHTML = `
+      <div class="section-header">
+        <input class="section-title" value="${section.name}" data-action="update-section-name" placeholder="Section Name" />
+        <div class="section-controls">
+          <button class="header-btn icon-btn" data-action="add-bar" title="Add Bar">
+            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+          <button class="header-btn icon-btn delete-section-btn" data-action="delete-section" title="Delete Section">
+            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="bars-grid">
+        ${section.bars.map((bar, i) => this.createBarHTML(section.id, bar, i + startingBarNum)).join('')}
+      </div>
+    `;
+    return sectionEl;
+  }
+
+  createBarHTML(sectionId, bar, barNumber) {
+    return `
+      <div class="bar" data-id="${bar.id}">
+        <div class="bar-number">${barNumber}</div>
+        <div class="slots">
+          ${bar.chords.map((chord, slotIndex) => this.createSlotHTML(sectionId, bar.id, slotIndex, chord)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  createSlotHTML(sectionId, barId, slotIndex, chord) {
+    const hasChord = chord && chord.root;
+    return `
+      <div class="slot ${hasChord ? 'has-chord' : ''}" data-section-id="${sectionId}" data-bar-id="${barId}" data-slot-index="${slotIndex}">
+        ${hasChord
+          ? `
+            <div class="chord-display">
+              <span class="chord-name">${this.getDisplayChord(chord)}</span>
+              ${chord.extension ? `<sup class="chord-extension">${chord.extension}</sup>` : ''}
+            </div>
+            <button class="delete-chord-btn" data-action="delete-chord" title="Delete Chord">×</button>
+          `
+          : '<div class="add-chord-placeholder">+</div>'
+        }
+      </div>
+    `;
+  }
+
+  getDisplayChord(chord) {
+    // This logic can be expanded for absolute chords
+    return chord.root;
+  }
+
+  // ===== ACTIONS (triggered by events) =====
+  addSection() {
+    const newSection = {
+      id: `s_${Date.now()}`,
+      name: `Section ${this.progression.sections.length + 1}`,
+      bars: Array.from({ length: 4 }, () => this.createEmptyBar())
+    };
+    this.progression.sections.push(newSection);
+    this.render();
+  }
+
+  deleteSection(sectionId) {
+    if (confirm('Are you sure you want to delete this section?')) {
+      this.progression.sections = this.progression.sections.filter(s => s.id !== sectionId);
+      this.render();
+    }
+  }
+
+  updateSectionName(sectionId, newName) {
+    const section = this.progression.sections.find(s => s.id === sectionId);
+    if (section) {
+      section.name = newName;
+      this.saveToStorage();
+    }
+  }
+
+  addBar(sectionId) {
+    const section = this.progression.sections.find(s => s.id === sectionId);
+    if (section) {
+      section.bars.push(this.createEmptyBar());
+      this.render();
+    }
+  }
+
+  createEmptyBar() {
+    return {
+      id: `b_${Date.now()}_${Math.random()}`,
+      chords: [null, null, null, null]
+    };
+  }
+
+  updateChord(sectionId, barId, slotIndex, newChordData) {
+    const section = this.progression.sections.find(s => s.id === sectionId);
+    const bar = section?.bars.find(b => b.id === barId);
+    if (bar) {
+      if (newChordData) {
+        bar.chords[slotIndex] = { ...bar.chords[slotIndex], ...newChordData };
+      } else {
+        bar.chords[slotIndex] = null; // Clear the chord
+      }
+      this.render();
+    }
+  }
+
+  // ===== INLINE SELECTORS =====
+  openChordSelector(slotEl) {
+    this.closeAllSelectors();
+    document.body.classList.add('selector-open');
+
+    const selector = document.createElement('div');
+    selector.className = 'chord-selector active';
+    const chords = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+    selector.innerHTML = `
+      <div class="selector-grid">
+        ${chords.map(c => `<button class="selector-btn" data-action="select-chord" data-value="${c}">${c}</button>`).join('')}
+      </div>
+    `;
+    slotEl.appendChild(selector);
+    this.currentEdit = slotEl.dataset;
+  }
+
+  openExtensionSelector(slotEl) {
+    this.closeAllSelectors();
+    document.body.classList.add('selector-open');
+
+    const selector = document.createElement('div');
+    selector.className = 'extension-selector active';
+    const extensions = ['7', 'maj7', 'm7', '9', 'add9', 'sus2', 'sus4', '6', '11', '13'];
+    selector.innerHTML = `
+      <div class="selector-grid">
+        ${extensions.map(e => `<button class="selector-btn" data-action="select-extension" data-value="${e}">${e}</button>`).join('')}
+      </div>
+      <div class="extension-footer">
+        <button class="btn-clear-ext" data-action="select-extension" data-value="">Clear Extension</button>
+      </div>
+    `;
+    slotEl.appendChild(selector);
+    this.currentEdit = slotEl.dataset;
+  }
+
+  closeAllSelectors() {
+    document.querySelectorAll('.chord-selector, .extension-selector').forEach(el => el.remove());
+    document.body.classList.remove('selector-open');
+    this.currentEdit = null;
+  }
+
+  // ===== EVENT HANDLING =====
+  setupEventListeners() {
+    // Delegated main click handler
+    document.addEventListener('click', e => {
+      const target = e.target;
+      const actionEl = target.closest('[data-action]');
+      
+      if (actionEl) {
+        const action = actionEl.dataset.action;
+        const value = actionEl.dataset.value;
+        const slotEl = target.closest('.slot');
+        const sectionEl = target.closest('.section');
+
+        switch (action) {
+          case 'select-chord':
+            this.updateChord(this.currentEdit.sectionId, this.currentEdit.barId, this.currentEdit.slotIndex, { root: value });
+            this.closeAllSelectors();
+            break;
+          case 'select-extension':
+            this.updateChord(this.currentEdit.sectionId, this.currentEdit.barId, this.currentEdit.slotIndex, { extension: value });
+            this.closeAllSelectors();
+            break;
+          case 'delete-chord':
+            e.stopPropagation();
+            this.updateChord(slotEl.dataset.sectionId, slotEl.dataset.barId, slotEl.dataset.slotIndex, null);
+            break;
+          case 'add-section':
+            this.addSection();
+            break;
+          case 'add-bar':
+            this.addBar(sectionEl.dataset.id);
+            break;
+          case 'delete-section':
+            this.deleteSection(sectionEl.dataset.id);
+            break;
+        }
+      } else if (target.closest('.slot')) {
+        // Open chord selector on left click
+        this.openChordSelector(target.closest('.slot'));
+      } else if (!target.closest('.chord-selector, .extension-selector')) {
+        // Close selectors if clicking outside
+        this.closeAllSelectors();
+      }
+    });
+
+    // Delegated context menu (right-click) handler
+    document.addEventListener('contextmenu', e => {
+      const slotEl = e.target.closest('.slot');
+      if (slotEl && slotEl.classList.contains('has-chord')) {
+        e.preventDefault();
+        this.openExtensionSelector(slotEl);
+      }
+    });
+
+    // Delegated input/change handler
+    document.addEventListener('input', e => {
+      const target = e.target;
+      if (target.dataset.field) {
+        this.updateProgressionField(target.dataset.field, target.value);
+      } else if (target.dataset.action === 'update-section-name') {
+        const sectionId = target.closest('.section').dataset.id;
+        this.updateSectionName(sectionId, target.value);
+      }
+    });
+    document.addEventListener('change', e => {
+        const target = e.target;
+        if (target.dataset.field) {
+            this.updateProgressionField(target.dataset.field, target.value);
+        }
+    });
+
+    // Global handlers
+    document.getElementById('playBtn').addEventListener('click', () => this.togglePlayback());
+    document.querySelector('.btn-import').addEventListener('click', () => this.importJSON());
+    document.querySelector('.btn-export').addEventListener('click', () => this.exportJSON());
+    document.querySelector('.btn-add-section').addEventListener('click', () => this.addSection());
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') this.closeAllSelectors();
+      if (e.code === 'Space' && !e.target.matches('input, select')) {
+        e.preventDefault();
+        this.togglePlayback();
+      }
+    });
+  }
+
+  importJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (imported && Array.isArray(imported.sections)) {
+            this.progression = { ...this.getDefaultProgression(), ...imported };
+            this.stopPlayback();
+            this.render();
+          } else {
+            alert('Invalid file format.');
+          }
+        } catch (err) {
+          alert(`Error reading file: ${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  exportJSON() {
+    const dataStr = JSON.stringify(this.progression, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const title = this.progression.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'progression';
+    link.download = `${title}.json`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 }
 
 // ===== INITIALIZATION =====
-let app;
-
 document.addEventListener('DOMContentLoaded', () => {
-  app = new ChordProgressionApp();
+  window.chordApp = new ChordProgressionApp();
 });
-
-// Expose app globally for debugging
-window.chordApp = app;
