@@ -483,6 +483,12 @@ body {
   border-radius: var(--radius-lg);
   padding: 20px;
   position: relative;
+  transition: all 0.2s ease;
+}
+
+.section:hover {
+  border-color: var(--border-focus);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .section-header {
@@ -557,38 +563,31 @@ body {
   box-shadow: var(--shadow);
 }
 
+.bar:hover .bar-number {
+  background: var(--accent);
+  color: var(--primary);
+  border-color: var(--accent);
+}
+
 .bar-number {
   position: absolute;
   top: -8px;
   left: 8px;
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 2px 6px;
   font-size: 10px;
-  font-weight: 700;
-  color: var(--primary);
+  font-weight: 600;
+  color: var(--text-muted);
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
   z-index: 10;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .bar-slots {
   display: flex;
   flex: 1;
-}
-
-.slot {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid var(--border);
-  position: relative;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  overflow: hidden;
 }
 
 .slot {
@@ -631,17 +630,23 @@ body {
   color: var(--text);
   user-select: none;
   position: relative;
+  transition: color 0.2s ease;
+}
+
+.slot:hover .chord {
+  color: var(--accent);
 }
 
 .chord-extension {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--accent-light);
   margin-left: 1px;
   vertical-align: super;
   line-height: 0;
   position: relative;
-  top: -4px;
+  top: -5px;
+  transition: color 0.2s ease;
 }
 
 .chord-slash {
@@ -649,12 +654,13 @@ body {
   font-weight: 600;
   color: var(--text-muted);
   margin-left: 2px;
+  transition: color 0.2s ease;
 }
 
 .empty-slot {
   color: var(--text-subtle);
-  font-size: 20px;
-  opacity: 0.4;
+  font-size: 18px;
+  opacity: 0.3;
   transition: all 0.2s ease;
   user-select: none;
   width: 100%;
@@ -662,11 +668,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 300;
 }
 
 .slot:hover .empty-slot {
-  opacity: 0.8;
+  opacity: 0.7;
   color: var(--accent);
+  font-size: 20px;
+  font-weight: 400;
 }
 
 .delete-btn {
@@ -710,6 +719,18 @@ body {
   z-index: 100;
   box-shadow: var(--shadow-lg);
   display: none;
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chord-selector.active {
@@ -723,7 +744,7 @@ body {
 }
 
 .chord-option {
-  padding: 8px 4px;
+  padding: 10px 4px;
   font-size: 14px;
   font-weight: 700;
   background: var(--surface);
@@ -733,12 +754,18 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: center;
+  user-select: none;
 }
 
 .chord-option:hover {
   border-color: var(--accent);
   background: rgba(103, 216, 239, 0.1);
   color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.chord-option:active {
+  transform: translateY(0);
 }
 
 .extension-selector {
@@ -753,6 +780,7 @@ body {
   z-index: 100;
   box-shadow: var(--shadow-lg);
   display: none;
+  animation: slideDown 0.15s ease-out;
 }
 
 .extension-selector.active {
@@ -767,7 +795,7 @@ body {
 }
 
 .extension-option {
-  padding: 6px 4px;
+  padding: 8px 4px;
   font-size: 12px;
   font-weight: 600;
   background: var(--surface);
@@ -777,15 +805,22 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: center;
+  user-select: none;
 }
 
 .extension-option:hover {
   border-color: var(--accent-light);
   color: var(--accent-light);
+  background: rgba(140, 232, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.extension-option:active {
+  transform: translateY(0);
 }
 
 .extension-clear {
-  padding: 4px 8px;
+  padding: 6px 8px;
   font-size: 11px;
   background: var(--danger);
   border: 1px solid var(--danger);
@@ -794,23 +829,16 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: center;
+  user-select: none;
 }
 
 .extension-clear:hover {
   background: #dc2626;
+  transform: translateY(-1px);
 }
 
-.slot {
-  flex: 1;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid var(--border);
-  position: relative;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  overflow: visible;
+.extension-clear:active {
+  transform: translateY(0);
 }
 
 /* ===== CONTEXT MENUS ===== */
