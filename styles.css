@@ -72,7 +72,8 @@ select:focus, input[type=number]:focus{box-shadow:var(--focus)}
 .section-name:focus{box-shadow:var(--focus)}
 .section-actions{display:flex; gap:8px; align-items:center}
 .section-body{
-  display:flex; gap:var(--grid-gap); align-items:flex-start; overflow-x:auto; padding-bottom:8px;
+  display:grid; gap:var(--grid-gap); align-items:flex-start; padding-bottom:8px;
+  grid-template-columns: repeat(4, var(--bar-w));
 }
 
 /* Bar */
@@ -124,12 +125,8 @@ select:focus, input[type=number]:focus{box-shadow:var(--focus)}
 .repeat-active .repeat-symbol{color:var(--accent)}
 
 /* Menu (context) */
-.menu{
-  position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center;
-}
-.menu-content{
-  background:var(--panel); border:1px solid #273055; padding:16px; border-radius:12px; min-width:280px; box-shadow:var(--shadow)
-}
+.menu{ position:fixed; inset:0; display:block; }
+.menu-content{ position:fixed; background:var(--panel); border:1px solid #273055; padding:12px; border-radius:10px; min-width:220px; box-shadow:var(--shadow) }
 .menu-row{margin-bottom:10px; display:flex; flex-direction:column; gap:6px}
 .menu-actions{display:flex; gap:8px; justify-content:flex-end}
 

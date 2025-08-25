@@ -13,27 +13,6 @@
       <input id="songTitle" class="text-input title" placeholder="Song title" aria-label="Song title" />
       <input id="songArtist" class="text-input artist" placeholder="Artist" aria-label="Artist" />
     </div>
-
-    <div class="controls">
-      <label class="field">
-        <span>Key</span>
-        <select id="keySelect" aria-label="Key">
-          <option>C</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
-          <option>F</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
-          <option>Bb</option><option>B</option>
-        </select>
-      </label>
-
-      <label class="field">
-        <span>BPM</span>
-        <input id="bpmInput" type="number" min="30" max="300" value="100" aria-label="BPM" />
-      </label>
-
-      <div class="playback">
-        <button id="playBtn" class="btn primary" aria-pressed="false">▶ Play</button>
-        <button id="stopBtn" class="btn">■ Stop</button>
-      </div>
-    </div>
   </header>
 
   <main id="main" class="main">
@@ -45,46 +24,8 @@
     <div id="sectionsContainer" class="sections"></div>
   </main>
 
-  <!-- Context menu for chords -->
-  <div id="chordMenu" class="menu" role="dialog" aria-modal="true" hidden>
-    <div class="menu-content">
-      <div class="menu-row">
-        <label>Extension
-          <select id="extSelect">
-            <option value="">(none)</option>
-            <option value="maj7">maj7</option>
-            <option value="7">7</option>
-            <option value="m7">m7</option>
-            <option value="dim">dim</option>
-            <option value="aug">aug</option>
-            <option value="sus2">sus2</option>
-            <option value="sus4">sus4</option>
-            <option value="add9">add9</option>
-          </select>
-        </label>
-      </div>
-      <div class="menu-row">
-        <label>Slash bass (e.g., V)
-          <input id="slashInput" class="text-input" placeholder="V" />
-        </label>
-      </div>
-      <div class="menu-actions">
-        <button id="saveChordMenu" class="btn primary">Save</button>
-        <button id="deleteChordBtn" class="btn danger">Delete chord</button>
-        <button id="closeChordMenu" class="btn">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Playhead overlay -->
-  <div id="playhead" class="playhead" aria-hidden="true"></div>
-
   <footer class="app-footer">
-    <label class="switch">
-      <input id="romanToggle" type="checkbox" checked />
-      <span>Show Roman numerals</span>
-    </label>
-    <span class="hint">Tip: Right‑click a chord for extensions &amp; slash. Click the bar edges to toggle repeat signs.</span>
+    <span class="hint">Tip: Click a slot to pick a Roman numeral. 4 bars per row, then wrap.</span>
   </footer>
 
   <script src="app.js"></script>
