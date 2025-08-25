@@ -5,6 +5,7 @@ let progression = {
   key: "C",
   timeSignature: "4/4",
   bpm: 120,
+  displayMode: "roman",
   sections: []
 };
 
@@ -254,6 +255,38 @@ class ChordProgressionApp {
     }
   }
 
+  // ===== CHORD UTILITIES =====
+  romanToChordName(roman, key) {
+    const keyMap = {
+      'C': ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'B°'],
+      'C#': ['C#', 'D#m', 'E#m', 'F#', 'G#', 'A#m', 'B#°'],
+      'Db': ['Db', 'Ebm', 'Fm', 'Gb', 'Ab', 'Bbm', 'C°'],
+      'D': ['D', 'Em', 'F#m', 'G', 'A', 'Bm', 'C#°'],
+      'D#': ['D#', 'E#m', 'F##m', 'G#', 'A#', 'B#m', 'C##°'],
+      'Eb': ['Eb', 'Fm', 'Gm', 'Ab', 'Bb', 'Cm', 'D°'],
+      'E': ['E', 'F#m', 'G#m', 'A', 'B', 'C#m', 'D#°'],
+      'F': ['F', 'Gm', 'Am', 'Bb', 'C', 'Dm', 'E°'],
+      'F#': ['F#', 'G#m', 'A#m', 'B', 'C#', 'D#m', 'E#°'],
+      'Gb': ['Gb', 'Abm', 'Bbm', 'Cb', 'Db', 'Ebm', 'F°'],
+      'G': ['G', 'Am', 'Bm', 'C', 'D', 'Em', 'F#°'],
+      'G#': ['G#', 'A#m', 'B#m', 'C#', 'D#', 'E#m', 'F##°'],
+      'Ab': ['Ab', 'Bbm', 'Cm', 'Db', 'Eb', 'Fm', 'G°'],
+      'A': ['A', 'Bm', 'C#m', 'D', 'E', 'F#m', 'G#°'],
+      'A#': ['A#', 'B#m', 'C##m', 'D#', 'E#', 'F##m', 'G##°'],
+      'Bb': ['Bb', 'Cm', 'Dm', 'Eb', 'F', 'Gm', 'A°'],
+      'B': ['B', 'C#m', 'D#m', 'E', 'F#', 'G#m', 'A#°']
+    };
+
+    const romanMap = {
+      'I': 0, 'ii': 1, 'iii': 2, 'IV': 3, 'V': 4, 'vi': 5, 'vii°': 6
+    };
+
+    const chords = keyMap[key] || keyMap['C'];
+    const index = romanMap[roman];
+    
+    return index !== undefined ? chords[index] : roman;
+  }
+
   // ===== CHORD MANAGEMENT =====
   openChordMenu(sectionId, barId, slotIndex) {
     this.currentEdit = { sectionId, barId, slotIndex };
@@ -347,6 +380,20 @@ class ChordProgressionApp {
       }
     });
 
+    // Handle display mode change
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'displayMode') {
+        progression.displayMode = e.target.value;
+        this.render();
+        this.saveToStorage();
+      }
+      if (e.target.dataset.field === 'key') {
+        progression.key = e.target.value;
+        this.render();
+        this.saveToStorage();
+      }
+    });
+
     // Play button
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('btn-play')) {
@@ -383,7 +430,7 @@ class ChordProgressionApp {
       if (e.key === 'Escape') {
         this.closeChordMenu();
       }
-      if (e.key === ' ' && !e.target.matches('input, textarea')) {
+      if (e.key === ' ' && !e.target.matches('input, textarea, select')) {
         e.preventDefault();
         this.togglePlayback();
       }
@@ -401,11 +448,13 @@ class ChordProgressionApp {
     const artistInput = document.querySelector('input[data-field="artist"]');
     const keySelect = document.querySelector('select[data-field="key"]');
     const bpmInput = document.querySelector('input[data-field="bpm"]');
+    const displaySelect = document.getElementById('displayMode');
 
     if (titleInput) titleInput.value = progression.title;
     if (artistInput) artistInput.value = progression.artist;
     if (keySelect) keySelect.value = progression.key;
     if (bpmInput) bpmInput.value = progression.bpm;
+    if (displaySelect) displaySelect.value = progression.displayMode;
   }
 
   renderSections() {
@@ -462,7 +511,10 @@ class ChordProgressionApp {
             <div class="slot" onclick="app.openChordMenu('${sectionId}', '${bar.id}', ${slotIndex})">
               ${chord ? `
                 <div class="chord">
-                  ${chord.root}
+                  ${progression.displayMode === 'roman' 
+                    ? chord.root 
+                    : this.romanToChordName(chord.root, progression.key)
+                  }
                   ${chord.extension ? `<sup class="chord-extension">${chord.extension}</sup>` : ''}
                   ${chord.slash ? `<span class="chord-slash">/${chord.slash}</span>` : ''}
                 </div>

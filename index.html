@@ -10,14 +10,16 @@
 <body>
   <!-- Song Header -->
   <header class="app-header">
-    <div class="song-info">
-      <input id="songTitle" class="input song-input" data-field="title" placeholder="Song Title" aria-label="Song title" />
-      <input id="songArtist" class="input song-input" data-field="artist" placeholder="Artist" aria-label="Artist" />
+    <div class="header-left">
+      <div class="song-meta">
+        <input id="songTitle" class="input song-input title-input" data-field="title" placeholder="Song Title" aria-label="Song title" />
+        <input id="songArtist" class="input song-input artist-input" data-field="artist" placeholder="Artist" aria-label="Artist" />
+      </div>
       
-      <div class="controls-group">
-        <label class="field">
-          <span>Key</span>
-          <select id="keySelect" class="select" data-field="key" aria-label="Key">
+      <div class="song-settings">
+        <div class="setting-group">
+          <label class="setting-label">Key</label>
+          <select id="keySelect" class="select compact-select" data-field="key" aria-label="Key">
             <option value="C">C</option>
             <option value="C#">C#</option>
             <option value="Db">Db</option>
@@ -36,26 +38,44 @@
             <option value="Bb">Bb</option>
             <option value="B">B</option>
           </select>
-        </label>
+        </div>
         
-        <label class="field">
-          <span>Display</span>
-          <select id="displayMode" class="select" aria-label="Display mode">
+        <div class="setting-group">
+          <label class="setting-label">Display</label>
+          <select id="displayMode" class="select compact-select" aria-label="Display mode">
             <option value="roman">Roman</option>
-            <option value="absolute">Chord Names</option>
+            <option value="absolute">Chords</option>
           </select>
-        </label>
+        </div>
+        
+        <div class="setting-group">
+          <label class="setting-label">BPM</label>
+          <input id="bpmInput" type="number" class="input compact-input song-input" data-field="bpm" value="120" min="60" max="200" aria-label="BPM" />
+        </div>
       </div>
     </div>
     
     <!-- Transport Controls -->
-    <div class="transport">
-      <button id="playBtn" class="btn btn-play" aria-label="Play" title="Play">▶</button>
-      <button id="stopBtn" class="btn" aria-label="Stop" title="Stop">⏹</button>
-      <label class="field">
-        <span>BPM</span>
-        <input id="bpmInput" type="number" class="input song-input" data-field="bpm" value="120" min="60" max="200" aria-label="BPM" />
-      </label>
+    <div class="header-right">
+      <div class="transport-controls">
+        <button id="playBtn" class="btn-transport btn-play" aria-label="Play" title="Play (Space)">
+          <span class="play-icon">▶</span>
+        </button>
+        <button id="stopBtn" class="btn-transport btn-stop" aria-label="Stop" title="Stop">
+          <span class="stop-icon">⏹</span>
+        </button>
+      </div>
+      
+      <div class="header-actions">
+        <button class="btn-header btn-export" title="Export JSON">
+          <span class="icon">⬇</span>
+          <span class="label">Export</span>
+        </button>
+        <button class="btn-header btn-import" title="Import JSON">
+          <span class="icon">⬆</span>
+          <span class="label">Import</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -127,10 +147,6 @@
   <footer class="footer">
     <div class="footer-content">
       <span class="hint">Left click: chord • Right click: extensions • Space: play/pause</span>
-      <div class="footer-actions">
-        <button class="btn btn-secondary btn-export">Export JSON</button>
-        <button class="btn btn-secondary btn-import">Import JSON</button>
-      </div>
     </div>
   </footer>
 
