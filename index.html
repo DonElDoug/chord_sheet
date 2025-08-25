@@ -4,25 +4,66 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chord Progression Studio</title>
-  <link rel="stylesheet" href="./styles.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
   <meta name="color-scheme" content="dark" />
 </head>
 <body>
+  <!-- Song Header -->
   <header class="app-header">
     <div class="song-info">
-      <input id="songTitle" class="text-input title" placeholder="Song Title" aria-label="Song title" />
-      <input id="songArtist" class="text-input artist" placeholder="Artist" aria-label="Artist" />
-      <input id="songBpm" class="text-input bpm" placeholder="BPM" aria-label="BPM" type="number" min="40" max="200" />
-      <input id="songKey" class="text-input key" placeholder="Key" aria-label="Key" />
+      <input id="songTitle" class="input" placeholder="Song Title" aria-label="Song title" />
+      <input id="songArtist" class="input" placeholder="Artist" aria-label="Artist" />
+      
+      <div class="controls-group">
+        <label class="field">
+          <span>Key</span>
+          <select id="keySelect" class="select" aria-label="Key">
+            <option value="C">C</option>
+            <option value="C#">C#</option>
+            <option value="Db">Db</option>
+            <option value="D">D</option>
+            <option value="D#">D#</option>
+            <option value="Eb">Eb</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <option value="F#">F#</option>
+            <option value="Gb">Gb</option>
+            <option value="G">G</option>
+            <option value="G#">G#</option>
+            <option value="Ab">Ab</option>
+            <option value="A">A</option>
+            <option value="A#">A#</option>
+            <option value="Bb">Bb</option>
+            <option value="B">B</option>
+          </select>
+        </label>
+        
+        <label class="field">
+          <span>Display</span>
+          <select id="displayMode" class="select" aria-label="Display mode">
+            <option value="roman">Roman</option>
+            <option value="absolute">Chord Names</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    
+    <!-- Transport Controls -->
+    <div class="transport">
+      <button id="playBtn" class="btn btn-play" aria-label="Play" title="Play">▶</button>
+      <button id="stopBtn" class="btn" aria-label="Stop" title="Stop">⏹</button>
+      <label class="field">
+        <span>BPM</span>
+        <input id="bpmInput" type="number" class="input bpm" value="120" min="60" max="200" aria-label="BPM" />
+      </label>
     </div>
   </header>
 
-  <main id="main" class="main">
+  <!-- Main Content -->
+  <main class="main">
     <div id="sectionsContainer" class="sections"></div>
     
+    <!-- Add Section -->
     <div class="add-section-area">
       <button id="addSectionBtn" class="btn-add-section">
         <span class="add-icon">+</span>
@@ -31,10 +72,68 @@
     </div>
   </main>
 
-  <footer class="app-footer">
-    <span class="hint">Left click: Add chord · Right click: Add extension · ESC: Close menu · Designed for musicians</span>
+  <!-- Playhead -->
+  <div id="playhead" class="playhead"></div>
+
+  <!-- Context Menus -->
+  <div id="chordMenu" class="context-menu" hidden>
+    <div class="menu-content">
+      <h4>Choose Chord</h4>
+      <div id="romanButtons" class="chord-grid"></div>
+      <div class="menu-actions">
+        <button id="clearChord" class="btn btn-secondary">Clear</button>
+        <button id="closeChordMenu" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="extensionMenu" class="context-menu" hidden>
+    <div class="menu-content">
+      <h4 id="extensionTitle">Extensions</h4>
+      <div id="extensionButtons" class="extension-grid"></div>
+      <div class="slash-section">
+        <label class="field">
+          <span>Bass Note (Slash Chord)</span>
+          <select id="slashSelect" class="select">
+            <option value="">None</option>
+          </select>
+        </label>
+      </div>
+      <div class="menu-actions">
+        <button id="saveExtension" class="btn btn-primary">Save</button>
+        <button id="closeExtensionMenu" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="repeatMenu" class="context-menu" hidden>
+    <div class="menu-content">
+      <h4>Repeat Markers</h4>
+      <div class="repeat-options">
+        <button class="repeat-btn" data-type="none">None</button>
+        <button class="repeat-btn" data-type="start">||:</button>
+        <button class="repeat-btn" data-type="end" data-count="2">:|| ×2</button>
+        <button class="repeat-btn" data-type="end" data-count="3">:|| ×3</button>
+        <button class="repeat-btn" data-type="end" data-count="4">:|| ×4</button>
+      </div>
+      <div class="menu-actions">
+        <button id="closeRepeatMenu" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <span class="hint">Left click: chord • Right click: extensions/repeats • Hover: delete</span>
+      <div class="footer-actions">
+        <button id="exportBtn" class="btn btn-secondary">Export JSON</button>
+        <button id="importBtn" class="btn btn-secondary">Import JSON</button>
+        <input id="importFile" type="file" accept=".json" hidden />
+      </div>
+    </div>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
