@@ -9,23 +9,21 @@
 </head>
 <body>
   <header class="app-header">
-    <div class="title-group">
-      <input id="songTitle" class="text-input title" placeholder="Song title" aria-label="Song title" />
+    <div class="song-info">
+      <input id="songTitle" class="text-input title" placeholder="Song Title" aria-label="Song title" />
       <input id="songArtist" class="text-input artist" placeholder="Artist" aria-label="Artist" />
+      <input id="songBpm" class="text-input bpm" placeholder="BPM" aria-label="BPM" type="number" min="40" max="200" />
+      <input id="songKey" class="text-input key" placeholder="Key" aria-label="Key" />
     </div>
+    <button id="addSectionBtn" class="btn-add">+ Section</button>
   </header>
 
   <main id="main" class="main">
-    <div class="sections-header">
-      <h2>Sections</h2>
-      <button id="addSectionBtn" class="btn outline">+ Add Section</button>
-    </div>
-
     <div id="sectionsContainer" class="sections"></div>
   </main>
 
   <footer class="app-footer">
-    <span class="hint">Tip: Click a slot to pick a Roman numeral. 4 bars per row, then wrap.</span>
+    <span class="hint">Tap any slot to add a chord · Designed for tablet concert use</span>
   </footer>
 
   <script src="app.js"></script>
