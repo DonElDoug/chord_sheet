@@ -4,6 +4,7 @@
 // ===== Constants =====
 const SLOTS_PER_BAR = 4;
 const ROMANS = ["I", "ii", "iii", "IV", "V", "vi", "viiø"];
+const EXTENSIONS = ["", "7", "maj7", "m7", "6", "9", "11", "13", "sus2", "sus4", "add9", "dim", "ø7"];
 
 // ===== State =====
 const state = {
@@ -45,7 +46,7 @@ function attachEvents() {
   els.artist.addEventListener('input', () => state.artist = els.artist.value);
   els.bpm.addEventListener('input', () => state.bpm = els.bpm.value);
   els.key.addEventListener('input', () => state.key = els.key.value);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeRomanMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllMenus(); });
 }
 
 // (no-op utils kept minimal)
@@ -95,15 +96,27 @@ function render() {
 
         const chordObj = bar.slots[slot];
         if (chordObj) {
-          slotEl.innerHTML = `<div class="chord">${chordObj.roman}</div>`;
+          const chordHtml = chordObj.extension 
+            ? `<div class="chord">${chordObj.roman}<span class="chord-extension">${chordObj.extension}</span></div>`
+            : `<div class="chord">${chordObj.roman}</div>`;
+          slotEl.innerHTML = chordHtml;
         } else {
-          slotEl.innerHTML = `<div class="empty-slot">·</div>`;
+          slotEl.innerHTML = `<div class="empty-slot">+</div>`;
         }
 
-        // Click to open roman picker
+        // Left click to open roman picker
         slotEl.addEventListener('click', (e) => {
           e.stopPropagation();
           openRomanMenu({ sIdx, bIdx, slot });
+        });
+
+        // Right click to open extension picker
+        slotEl.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (chordObj) {
+            openExtensionMenu({ sIdx, bIdx, slot });
+          }
         });
 
         slotsContainer.appendChild(slotEl);
@@ -135,7 +148,7 @@ function setSlot(sIdx,bIdx,slot,val){ state.sections[sIdx].bars[bIdx].slots[slot
 
 // ===== Menus =====
 function openRomanMenu(ctx) {
-  closeRomanMenu();
+  closeAllMenus();
   romanOverlay = ctx;
   
   const menu = document.createElement('div');
@@ -162,33 +175,86 @@ function openRomanMenu(ctx) {
     if (!btn) return;
     
     if (btn.id === 'closeRoman') {
-      closeRomanMenu();
+      closeAllMenus();
     } else if (btn.id === 'clearChord') {
       setSlot(ctx.sIdx, ctx.bIdx, ctx.slot, null);
-      closeRomanMenu();
+      closeAllMenus();
     } else {
       const r = btn.getAttribute('data-r');
       if (r) {
-        setSlot(ctx.sIdx, ctx.bIdx, ctx.slot, { roman: r });
-        closeRomanMenu();
+        setSlot(ctx.sIdx, ctx.bIdx, ctx.slot, { roman: r, extension: '' });
+        closeAllMenus();
       }
     }
   });
   
   // Click outside to close
   menu.addEventListener('click', (e) => {
-    if (e.target === menu) closeRomanMenu();
+    if (e.target === menu) closeAllMenus();
   });
 }
 
-function closeRomanMenu() {
-  const m = document.getElementById('romanMenu');
-  if (m) {
-    m.remove();
-    romanOverlay = null;
-  }
+function openExtensionMenu(ctx) {
+  closeAllMenus();
+  romanOverlay = ctx;
+  
+  const currentChord = state.sections[ctx.sIdx].bars[ctx.bIdx].slots[ctx.slot];
+  
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.id = 'extensionMenu';
+  
+  menu.innerHTML = `
+    <div class="menu-content">
+      <h3>Choose Extension for ${currentChord.roman}</h3>
+      <div class="extension-grid">
+        ${EXTENSIONS.map(ext => `
+          <button class="ext-btn ${ext === (currentChord.extension || '') ? 'selected' : ''}" data-ext="${ext}">
+            ${ext || 'None'}
+          </button>
+        `).join('')}
+      </div>
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button class="btn" id="closeExtension">Cancel</button>
+      </div>
+    </div>`;
+  
+  document.body.appendChild(menu);
+  
+  // Event handlers
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    
+    if (btn.id === 'closeExtension') {
+      closeAllMenus();
+    } else {
+      const ext = btn.getAttribute('data-ext');
+      if (ext !== null) {
+        const updatedChord = { ...currentChord, extension: ext };
+        setSlot(ctx.sIdx, ctx.bIdx, ctx.slot, updatedChord);
+        closeAllMenus();
+      }
+    }
+  });
+  
+  // Click outside to close
+  menu.addEventListener('click', (e) => {
+    if (e.target === menu) closeAllMenus();
+  });
+}
+
+function closeAllMenus() {
+  const romanMenu = document.getElementById('romanMenu');
+  const extensionMenu = document.getElementById('extensionMenu');
+  if (romanMenu) romanMenu.remove();
+  if (extensionMenu) extensionMenu.remove();
+  romanOverlay = null;
 }
 // Utilities
-document.addEventListener('contextmenu', (e)=>{
-  if (e.target.closest('.bar') || e.target.closest('.chord')) e.preventDefault();
+document.addEventListener('contextmenu', (e) => {
+  // Allow right-click on slots for extensions, prevent on other elements
+  if (!e.target.closest('.slot')) {
+    e.preventDefault();
+  }
 });
