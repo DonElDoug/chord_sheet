@@ -288,21 +288,83 @@ class ChordProgressionApp {
   }
 
   // ===== CHORD MANAGEMENT =====
-  openChordMenu(sectionId, barId, slotIndex) {
+  openChordSelector(sectionId, barId, slotIndex, element) {
+    this.closeAllSelectors();
     this.currentEdit = { sectionId, barId, slotIndex };
     
-    const menu = document.getElementById('chord-menu');
-    menu.style.display = 'flex';
+    // Create chord selector
+    const selector = document.createElement('div');
+    selector.className = 'chord-selector active';
+    selector.innerHTML = `
+      <div class="chord-options">
+        <div class="chord-option" data-chord="I">I</div>
+        <div class="chord-option" data-chord="ii">ii</div>
+        <div class="chord-option" data-chord="iii">iii</div>
+        <div class="chord-option" data-chord="IV">IV</div>
+        <div class="chord-option" data-chord="V">V</div>
+        <div class="chord-option" data-chord="vi">vi</div>
+        <div class="chord-option" data-chord="vii°">vii°</div>
+        <div class="chord-option" data-chord="">Clear</div>
+      </div>
+    `;
     
-    // Reset extension selection
-    document.querySelectorAll('.ext-btn').forEach(btn => {
-      btn.classList.remove('selected');
+    element.appendChild(selector);
+    
+    // Add event listeners
+    selector.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (e.target.classList.contains('chord-option')) {
+        const chord = e.target.dataset.chord;
+        if (chord) {
+          this.selectChord(chord);
+        } else {
+          this.deleteChord(sectionId, barId, slotIndex);
+        }
+        this.closeAllSelectors();
+      }
     });
   }
 
-  closeChordMenu() {
-    const menu = document.getElementById('chord-menu');
-    menu.style.display = 'none';
+  openExtensionSelector(sectionId, barId, slotIndex, element) {
+    this.closeAllSelectors();
+    this.currentEdit = { sectionId, barId, slotIndex };
+    
+    // Create extension selector
+    const selector = document.createElement('div');
+    selector.className = 'extension-selector active';
+    selector.innerHTML = `
+      <div class="extension-options">
+        <div class="extension-option" data-ext="7">7</div>
+        <div class="extension-option" data-ext="9">9</div>
+        <div class="extension-option" data-ext="maj7">maj7</div>
+        <div class="extension-option" data-ext="m7">m7</div>
+        <div class="extension-option" data-ext="sus2">sus2</div>
+        <div class="extension-option" data-ext="sus4">sus4</div>
+        <div class="extension-option" data-ext="add9">add9</div>
+        <div class="extension-option" data-ext="6">6</div>
+        <div class="extension-option" data-ext="11">11</div>
+        <div class="extension-option" data-ext="13">13</div>
+      </div>
+      <div class="extension-clear" data-ext="">Clear Extension</div>
+    `;
+    
+    element.appendChild(selector);
+    
+    // Add event listeners
+    selector.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (e.target.classList.contains('extension-option') || e.target.classList.contains('extension-clear')) {
+        const extension = e.target.dataset.ext;
+        this.applyExtension(extension);
+        this.closeAllSelectors();
+      }
+    });
+  }
+
+  closeAllSelectors() {
+    document.querySelectorAll('.chord-selector, .extension-selector').forEach(el => {
+      el.remove();
+    });
     this.currentEdit = null;
   }
 
@@ -323,26 +385,10 @@ class ChordProgressionApp {
     
     this.render();
     this.saveToStorage();
-    this.closeChordMenu();
   }
 
-  selectExtension(ext) {
-    // Toggle extension selection
-    const btn = event.target;
-    const wasSelected = btn.classList.contains('selected');
-    
-    document.querySelectorAll('.ext-btn').forEach(b => b.classList.remove('selected'));
-    
-    if (!wasSelected) {
-      btn.classList.add('selected');
-    }
-  }
-
-  applyChordWithExtension() {
+  applyExtension(extension) {
     if (!this.currentEdit) return;
-    
-    const selectedExt = document.querySelector('.ext-btn.selected');
-    const extension = selectedExt?.textContent || null;
     
     const { sectionId, barId, slotIndex } = this.currentEdit;
     const section = progression.sections.find(s => s.id === sectionId);
@@ -350,12 +396,19 @@ class ChordProgressionApp {
     const currentChord = bar?.chords[slotIndex];
     
     if (bar && currentChord) {
-      currentChord.extension = extension;
+      currentChord.extension = extension || null;
+      this.render();
+      this.saveToStorage();
+    } else if (bar && extension) {
+      // If no chord exists but extension is applied, create a I chord
+      bar.chords[slotIndex] = {
+        root: 'I',
+        extension: extension,
+        slash: null
+      };
       this.render();
       this.saveToStorage();
     }
-    
-    this.closeChordMenu();
   }
 
   deleteChord(sectionId, barId, slotIndex) {
@@ -420,19 +473,44 @@ class ChordProgressionApp {
 
     // Close menus on background click
     document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('context-menu')) {
-        this.closeChordMenu();
+      if (!e.target.closest('.chord-selector') && !e.target.closest('.extension-selector') && !e.target.closest('.slot')) {
+        this.closeAllSelectors();
       }
     });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        this.closeChordMenu();
+        this.closeAllSelectors();
       }
       if (e.key === ' ' && !e.target.matches('input, textarea, select')) {
         e.preventDefault();
         this.togglePlayback();
+      }
+    });
+
+    // Handle left/right click on slots
+    document.addEventListener('click', (e) => {
+      const slot = e.target.closest('.slot');
+      if (slot && !e.target.closest('.delete-btn')) {
+        e.preventDefault();
+        const sectionId = slot.dataset.sectionId;
+        const barId = slot.dataset.barId;
+        const slotIndex = parseInt(slot.dataset.slotIndex);
+        
+        this.openChordSelector(sectionId, barId, slotIndex, slot);
+      }
+    });
+
+    document.addEventListener('contextmenu', (e) => {
+      const slot = e.target.closest('.slot');
+      if (slot && !e.target.closest('.delete-btn')) {
+        e.preventDefault();
+        const sectionId = slot.dataset.sectionId;
+        const barId = slot.dataset.barId;
+        const slotIndex = parseInt(slot.dataset.slotIndex);
+        
+        this.openExtensionSelector(sectionId, barId, slotIndex, slot);
       }
     });
   }
@@ -508,7 +586,7 @@ class ChordProgressionApp {
         <div class="bar-number">${barNumber}</div>
         <div class="bar-slots">
           ${bar.chords.map((chord, slotIndex) => `
-            <div class="slot" onclick="app.openChordMenu('${sectionId}', '${bar.id}', ${slotIndex})">
+            <div class="slot" data-section-id="${sectionId}" data-bar-id="${bar.id}" data-slot-index="${slotIndex}">
               ${chord ? `
                 <div class="chord">
                   ${progression.displayMode === 'roman' 
@@ -564,38 +642,6 @@ class ChordProgressionApp {
       bar.style.boxShadow = '';
     });
   }
-}
-
-// ===== CHORD MENU FUNCTIONS =====
-function selectChord(chord) {
-  app.selectChord(chord);
-}
-
-function selectExtension(ext) {
-  app.selectExtension(ext);
-}
-
-function selectSlash(note) {
-  if (!app.currentEdit) return;
-  
-  const { sectionId, barId, slotIndex } = app.currentEdit;
-  const section = progression.sections.find(s => s.id === sectionId);
-  const bar = section?.bars.find(b => b.id === barId);
-  const currentChord = bar?.chords[slotIndex];
-  
-  if (bar && currentChord) {
-    currentChord.slash = note;
-    app.render();
-    app.saveToStorage();
-  }
-}
-
-function applyExtension() {
-  app.applyChordWithExtension();
-}
-
-function closeMenu() {
-  app.closeChordMenu();
 }
 
 // ===== INITIALIZATION =====

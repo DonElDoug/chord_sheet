@@ -58,7 +58,7 @@ body {
 
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 2px rgba(103, 216, 239, 0.2);
   background: var(--surface-raised);
 }
 
@@ -77,7 +77,13 @@ body {
 
 .select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 2px rgba(103, 216, 239, 0.2);
+}
+
+/* Ensure select dropdowns are dark */
+.select option {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .field {
@@ -112,13 +118,13 @@ body {
 }
 
 .btn:focus {
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 2px rgba(103, 216, 239, 0.2);
 }
 
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--primary);
 }
 
 .btn-primary:hover {
@@ -165,7 +171,7 @@ body {
 .btn-add-section:hover {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(103, 216, 239, 0.05);
 }
 
 .add-icon {
@@ -555,14 +561,16 @@ body {
   position: absolute;
   top: -8px;
   left: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 4px;
   padding: 2px 6px;
   font-size: 10px;
-  font-weight: 600;
-  color: var(--text-subtle);
+  font-weight: 700;
+  color: var(--primary);
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .bar-slots {
@@ -581,6 +589,19 @@ body {
   cursor: pointer;
   transition: background 0.15s ease;
   overflow: hidden;
+}
+
+.slot {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  overflow: visible;
 }
 
 .slot:last-child {
@@ -676,6 +697,122 @@ body {
   background: #dc2626;
 }
 
+/* ===== INLINE CHORD SELECTION ===== */
+.chord-selector {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 8px;
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+  display: none;
+}
+
+.chord-selector.active {
+  display: block;
+}
+
+.chord-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.chord-option {
+  padding: 8px 4px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.chord-option:hover {
+  border-color: var(--accent);
+  background: rgba(103, 216, 239, 0.1);
+  color: var(--accent);
+}
+
+.extension-selector {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--accent-light);
+  border-radius: var(--radius);
+  padding: 8px;
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+  display: none;
+}
+
+.extension-selector.active {
+  display: block;
+}
+
+.extension-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.extension-option {
+  padding: 6px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.extension-option:hover {
+  border-color: var(--accent-light);
+  color: var(--accent-light);
+}
+
+.extension-clear {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.extension-clear:hover {
+  background: #dc2626;
+}
+
+.slot {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  overflow: visible;
+}
+
 /* ===== CONTEXT MENUS ===== */
 .context-menu {
   position: fixed;
@@ -726,7 +863,7 @@ body {
 
 .chord-btn:hover {
   border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(103, 216, 239, 0.1);
 }
 
 .extension-grid {
@@ -790,7 +927,7 @@ body {
 
 .repeat-btn:hover {
   border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(103, 216, 239, 0.1);
 }
 
 .menu-actions {
