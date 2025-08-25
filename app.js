@@ -22,6 +22,12 @@ class ChordProgressionApp {
   init() {
     this.setupEventListeners();
     this.loadFromStorage();
+    
+    // Add a default section if none exist
+    if (progression.sections.length === 0) {
+      this.addSection();
+    }
+    
     this.render();
     this.initAudio();
   }
@@ -515,6 +521,21 @@ function selectChord(chord) {
 
 function selectExtension(ext) {
   app.selectExtension(ext);
+}
+
+function selectSlash(note) {
+  if (!app.currentEdit) return;
+  
+  const { sectionId, barId, slotIndex } = app.currentEdit;
+  const section = progression.sections.find(s => s.id === sectionId);
+  const bar = section?.bars.find(b => b.id === barId);
+  const currentChord = bar?.chords[slotIndex];
+  
+  if (bar && currentChord) {
+    currentChord.slash = note;
+    app.render();
+    app.saveToStorage();
+  }
 }
 
 function applyExtension() {

@@ -11,13 +11,13 @@
   <!-- Song Header -->
   <header class="app-header">
     <div class="song-info">
-      <input id="songTitle" class="input" placeholder="Song Title" aria-label="Song title" />
-      <input id="songArtist" class="input" placeholder="Artist" aria-label="Artist" />
+      <input id="songTitle" class="input song-input" data-field="title" placeholder="Song Title" aria-label="Song title" />
+      <input id="songArtist" class="input song-input" data-field="artist" placeholder="Artist" aria-label="Artist" />
       
       <div class="controls-group">
         <label class="field">
           <span>Key</span>
-          <select id="keySelect" class="select" aria-label="Key">
+          <select id="keySelect" class="select" data-field="key" aria-label="Key">
             <option value="C">C</option>
             <option value="C#">C#</option>
             <option value="Db">Db</option>
@@ -54,18 +54,18 @@
       <button id="stopBtn" class="btn" aria-label="Stop" title="Stop">⏹</button>
       <label class="field">
         <span>BPM</span>
-        <input id="bpmInput" type="number" class="input bpm" value="120" min="60" max="200" aria-label="BPM" />
+        <input id="bpmInput" type="number" class="input song-input" data-field="bpm" value="120" min="60" max="200" aria-label="BPM" />
       </label>
     </div>
   </header>
 
   <!-- Main Content -->
   <main class="main">
-    <div id="sectionsContainer" class="sections"></div>
+    <div class="sections"></div>
     
     <!-- Add Section -->
     <div class="add-section-area">
-      <button id="addSectionBtn" class="btn-add-section">
+      <button class="btn-add-section">
         <span class="add-icon">+</span>
         <span>Add Section</span>
       </button>
@@ -76,48 +76,49 @@
   <div id="playhead" class="playhead"></div>
 
   <!-- Context Menus -->
-  <div id="chordMenu" class="context-menu" hidden>
+  <div id="chord-menu" class="context-menu" style="display: none;">
     <div class="menu-content">
       <h4>Choose Chord</h4>
-      <div id="romanButtons" class="chord-grid"></div>
-      <div class="menu-actions">
-        <button id="clearChord" class="btn btn-secondary">Clear</button>
-        <button id="closeChordMenu" class="btn">Cancel</button>
+      <div class="chord-grid">
+        <button class="chord-btn" onclick="selectChord('I')">I</button>
+        <button class="chord-btn" onclick="selectChord('ii')">ii</button>
+        <button class="chord-btn" onclick="selectChord('iii')">iii</button>
+        <button class="chord-btn" onclick="selectChord('IV')">IV</button>
+        <button class="chord-btn" onclick="selectChord('V')">V</button>
+        <button class="chord-btn" onclick="selectChord('vi')">vi</button>
+        <button class="chord-btn" onclick="selectChord('vii°')">vii°</button>
       </div>
-    </div>
-  </div>
-
-  <div id="extensionMenu" class="context-menu" hidden>
-    <div class="menu-content">
-      <h4 id="extensionTitle">Extensions</h4>
-      <div id="extensionButtons" class="extension-grid"></div>
+      
+      <h4>Extensions</h4>
+      <div class="extension-grid">
+        <button class="ext-btn" onclick="selectExtension('7')">7</button>
+        <button class="ext-btn" onclick="selectExtension('9')">9</button>
+        <button class="ext-btn" onclick="selectExtension('11')">11</button>
+        <button class="ext-btn" onclick="selectExtension('13')">13</button>
+        <button class="ext-btn" onclick="selectExtension('maj7')">maj7</button>
+        <button class="ext-btn" onclick="selectExtension('m7')">m7</button>
+        <button class="ext-btn" onclick="selectExtension('sus2')">sus2</button>
+        <button class="ext-btn" onclick="selectExtension('sus4')">sus4</button>
+        <button class="ext-btn" onclick="selectExtension('add9')">add9</button>
+        <button class="ext-btn" onclick="selectExtension('6')">6</button>
+      </div>
+      
       <div class="slash-section">
-        <label class="field">
-          <span>Bass Note (Slash Chord)</span>
-          <select id="slashSelect" class="select">
-            <option value="">None</option>
-          </select>
-        </label>
+        <h4>Bass Note (Slash Chord)</h4>
+        <div class="chord-grid">
+          <button class="chord-btn" onclick="selectSlash('C')">C</button>
+          <button class="chord-btn" onclick="selectSlash('D')">D</button>
+          <button class="chord-btn" onclick="selectSlash('E')">E</button>
+          <button class="chord-btn" onclick="selectSlash('F')">F</button>
+          <button class="chord-btn" onclick="selectSlash('G')">G</button>
+          <button class="chord-btn" onclick="selectSlash('A')">A</button>
+          <button class="chord-btn" onclick="selectSlash('B')">B</button>
+        </div>
       </div>
+      
       <div class="menu-actions">
-        <button id="saveExtension" class="btn btn-primary">Save</button>
-        <button id="closeExtensionMenu" class="btn">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="repeatMenu" class="context-menu" hidden>
-    <div class="menu-content">
-      <h4>Repeat Markers</h4>
-      <div class="repeat-options">
-        <button class="repeat-btn" data-type="none">None</button>
-        <button class="repeat-btn" data-type="start">||:</button>
-        <button class="repeat-btn" data-type="end" data-count="2">:|| ×2</button>
-        <button class="repeat-btn" data-type="end" data-count="3">:|| ×3</button>
-        <button class="repeat-btn" data-type="end" data-count="4">:|| ×4</button>
-      </div>
-      <div class="menu-actions">
-        <button id="closeRepeatMenu" class="btn">Cancel</button>
+        <button class="btn btn-secondary" onclick="applyExtension()">Apply</button>
+        <button class="btn" onclick="closeMenu()">Cancel</button>
       </div>
     </div>
   </div>
@@ -125,15 +126,14 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="footer-content">
-      <span class="hint">Left click: chord • Right click: extensions/repeats • Hover: delete</span>
+      <span class="hint">Left click: chord • Right click: extensions • Space: play/pause</span>
       <div class="footer-actions">
-        <button id="exportBtn" class="btn btn-secondary">Export JSON</button>
-        <button id="importBtn" class="btn btn-secondary">Import JSON</button>
-        <input id="importFile" type="file" accept=".json" hidden />
+        <button class="btn btn-secondary btn-export">Export JSON</button>
+        <button class="btn btn-secondary btn-import">Import JSON</button>
       </div>
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
