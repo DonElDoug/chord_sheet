@@ -1,130 +1,45 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chord Progression App</title>
-    <link rel="stylesheet" href="./styles.css">
-    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chord Progression App</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
 </head>
 <body>
-    <header>
-        <div class="container">
-            <h1>Chord Progression App</h1>
-            <button id="theme-toggle" aria-label="Theme umschalten" title="Hell/Dunkel Theme">🌙</button>
-        </div>
-    </header>
-
-    <main class="container">
-        <!-- Status Messages -->
-        <div id="status" aria-live="polite" class="sr-only"></div>
-
-        <!-- Settings Panel -->
-        <section class="settings-panel" aria-labelledby="settings-heading">
-            <h2 id="settings-heading">Einstellungen</h2>
-            
-            <div class="settings-grid">
-                <div class="setting-group">
-                    <label for="key-select">Tonart:</label>
-                    <select id="key-select" aria-describedby="key-help">
-                        <option value="C">C</option>
-                        <option value="C#">C#</option>
-                        <option value="D">D</option>
-                        <option value="D#">D#</option>
-                        <option value="E">E</option>
-                        <option value="F">F</option>
-                        <option value="F#">F#</option>
-                        <option value="G">G</option>
-                        <option value="G#">G#</option>
-                        <option value="A">A</option>
-                        <option value="A#">A#</option>
-                        <option value="B">B</option>
-                    </select>
-                    <small id="key-help">Grundtonart der Progression</small>
-                </div>
-
-                <div class="setting-group">
-                    <label for="scale-select">Skala:</label>
-                    <select id="scale-select" aria-describedby="scale-help">
-                        <option value="major">Dur</option>
-                        <option value="minor">Moll</option>
-                        <option value="dorian">Dorisch</option>
-                        <option value="mixolydian">Mixolydisch</option>
-                    </select>
-                    <small id="scale-help">Tonleiter der Progression</small>
-                </div>
-
-                <div class="setting-group">
-                    <label for="bpm-slider">BPM: <span id="bpm-value">120</span></label>
-                    <input type="range" id="bpm-slider" min="60" max="200" value="120" 
-                           aria-describedby="bpm-help">
-                    <small id="bpm-help">Geschwindigkeit der Wiedergabe</small>
-                </div>
-            </div>
-        </section>
-
-        <!-- Chord Input -->
-        <section class="chord-input" aria-labelledby="input-heading">
-            <h2 id="input-heading">Akkord hinzufügen</h2>
-            
-            <div class="input-group">
-                <label for="chord-input">Akkord:</label>
-                <select id="chord-input" aria-describedby="chord-help">
-                    <option value="">-- Akkord wählen --</option>
-                    <option value="I">I</option>
-                    <option value="ii">ii</option>
-                    <option value="iii">iii</option>
-                    <option value="IV">IV</option>
-                    <option value="V">V</option>
-                    <option value="vi">vi</option>
-                    <option value="vii°">vii°</option>
-                </select>
-                <button id="add-chord" disabled aria-describedby="chord-help">Hinzufügen</button>
-                <small id="chord-help">Wähle einen Akkord in römischer Notation</small>
-            </div>
-        </section>
-
-        <!-- Progression Display -->
-        <section class="progression-section" aria-labelledby="progression-heading">
-            <h2 id="progression-heading">Akkordfolge</h2>
-            
-            <div class="progression-controls">
-                <button id="play-btn" aria-describedby="play-help">▶ Play</button>
-                <button id="stop-btn" disabled aria-describedby="play-help">⏹ Stop</button>
-                <small id="play-help">Progression abspielen/stoppen</small>
-            </div>
-
-            <ul id="progression-list" role="list" aria-label="Aktuelle Akkordfolge">
-                <!-- Chord items will be added here dynamically -->
-            </ul>
-
-            <div class="progression-empty" id="progression-empty">
-                <p>Keine Akkorde hinzugefügt. Wähle einen Akkord aus und klicke "Hinzufügen".</p>
-            </div>
-        </section>
-
-        <!-- Export/Import -->
-        <section class="data-section" aria-labelledby="data-heading">
-            <h2 id="data-heading">Export/Import</h2>
-            
-            <div class="data-controls">
-                <button id="export-btn">📄 Exportieren</button>
-                <input type="file" id="import-file" accept=".json" class="sr-only">
-                <button id="import-btn">📁 Importieren</button>
-                <button id="clear-btn" class="danger">🗑 Alles löschen</button>
-            </div>
-
-            <textarea id="export-area" placeholder="Exportierte Daten erscheinen hier..." 
-                     aria-label="Exportierte JSON-Daten" rows="5"></textarea>
-        </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Chord Progression App - Erstellt mit Vanilla JavaScript</p>
-        </div>
-    </footer>
-
-    <script src="./script.js" defer></script>
+  <header>
+    <div class="container">
+      <div>
+        <input id="song-title" type="text" placeholder="Song Title" aria-label="Song Title">
+        <input id="song-artist" type="text" placeholder="Artist" aria-label="Artist">
+      </div>
+      <div class="header-controls">
+        <label for="key-select">Key:</label>
+        <select id="key-select" aria-label="Key">
+          <option>C</option><option>C#</option><option>D</option><option>D#</option>
+          <option>E</option><option>F</option><option>F#</option><option>G</option>
+          <option>G#</option><option>A</option><option>A#</option><option>B</option>
+        </select>
+        <label for="bpm-input">BPM:</label>
+        <input id="bpm-input" type="number" min="40" max="240" value="120" aria-label="BPM">
+        <button id="play-btn" aria-label="Play">▶</button>
+        <button id="stop-btn" aria-label="Stop" disabled>⏹</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="container">
+      <div id="sections"></div>
+      <button id="add-section-btn" class="accent" aria-label="Add Section">+ Add Section</button>
+      <div id="playhead"></div>
+    </div>
+  </main>
+  <footer>
+    <div class="container">
+      <span>Chord Progression App &copy; 2025</span>
+    </div>
+  </footer>
+  <script src="./app.js"></script>
 </body>
 </html>

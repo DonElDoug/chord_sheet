@@ -1,20 +1,13 @@
 /* CSS Variables for Theme Support */
 :root {
-    /* Dark Theme (Default) */
-    --bg-primary: #0f0f0f;
-    --bg-secondary: #1a1a1a;
-    --bg-tertiary: #2a2a2a;
-    --text-primary: #ffffff;
-    --text-secondary: #b0b0b0;
-    --text-muted: #808080;
-    --accent-primary: #3b82f6;
-    --accent-hover: #2563eb;
-    --border-color: #404040;
-    --focus-ring: #60a5fa;
-    --danger: #ef4444;
-    --danger-hover: #dc2626;
-    --success: #22c55e;
-    --warning: #f59e0b;
+  --bg: #18181b;
+  --bg-light: #23232a;
+  --accent: #3b82f6;
+  --accent-light: #60a5fa;
+  --text: #f3f4f6;
+  --text-muted: #a1a1aa;
+  --border: #27272a;
+  --focus: #f59e42;
 }
 
 [data-theme="light"] {
@@ -43,12 +36,10 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
-                 'Helvetica Neue', Arial, sans-serif;
-    line-height: 1.6;
-    color: var(--text-primary);
-    background-color: var(--bg-primary);
-    transition: background-color 0.3s ease, color 0.3s ease;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
 }
 
 /* Screen Reader Only */
@@ -66,25 +57,25 @@ body {
 
 /* Container */
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1rem;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem;
 }
 
 /* Header */
 header {
-    background-color: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-    padding: 1rem 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 header .container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 h1 {
@@ -205,18 +196,14 @@ input[type="range"]::-moz-range-thumb {
 
 /* Buttons */
 button {
-    background-color: var(--accent-primary);
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 button:hover:not(:disabled) {
@@ -230,17 +217,14 @@ button:focus {
 }
 
 button:disabled {
-    background-color: var(--text-muted);
-    cursor: not-allowed;
-    transform: none;
+  background: var(--border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
 }
 
-button.danger {
-    background-color: var(--danger);
-}
-
-button.danger:hover:not(:disabled) {
-    background-color: var(--danger-hover);
+button.accent {
+  background: var(--accent-light);
 }
 
 /* Input Group */
@@ -278,12 +262,20 @@ button.danger:hover:not(:disabled) {
 }
 
 .chord-item {
-    background-color: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    position: relative;
-    transition: all 0.2s ease;
+  background: var(--accent-light);
+  color: #18181b;
+  border-radius: 0.2em;
+  padding: 0.1em 0.4em;
+  margin: 0.1em;
+  font-weight: bold;
+  cursor: pointer;
+  position: relative;
+}
+
+.chord-item .ext {
+  font-size: 0.8em;
+  vertical-align: super;
+  margin-left: 0.1em;
 }
 
 .chord-item:hover {
@@ -375,8 +367,8 @@ small {
 
 /* Footer */
 footer {
-    background-color: var(--bg-secondary);
-    border-top: 1px solid var(--border-color);
+    background: var(--bg-light);
+    border-top: 1px solid var(--border);
     padding: 1rem 0;
     text-align: center;
     color: var(--text-muted);
