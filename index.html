@@ -63,16 +63,28 @@
     </div>
   </header>
 
-  <main class="main">
-    <div class="sections">
-      <!-- Sections will be dynamically inserted here -->
-    </div>
-    
-    <div class="add-section-area">
-      <button class="btn-add-section">
-        <span class="add-icon">+</span>
-        <span>Add Section</span>
-      </button>
+  <main class="main-container">
+    <aside class="section-sidebar">
+      <div class="section-list-header">
+        <h3>Sections</h3>
+      </div>
+      <div class="section-list">
+        <!-- Section list will be dynamically inserted here -->
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn-add-section" data-action="add-section">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          <span>Add Section</span>
+        </button>
+      </div>
+    </aside>
+    <div class="content-area">
+      <div class="bars-container">
+        <!-- Bars of the active section will be dynamically inserted here -->
+        <div class="no-section-selected">
+          <p>Select a section on the left to view its bars.</p>
+        </div>
+      </div>
     </div>
   </main>
 

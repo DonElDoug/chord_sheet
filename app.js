@@ -16,6 +16,7 @@
 class ChordProgressionApp {
   constructor() {
     this.progression = this.getDefaultProgression();
+    this.activeSectionId = null;
     this.isPlaying = false;
     this.playInterval = null;
     this.audioContext = null;
@@ -34,8 +35,10 @@ class ChordProgressionApp {
     if (this.progression.sections.length === 0) {
       this.addSection();
     } else {
-      this.render();
+      // If we have sections, make the first one active
+      this.activeSectionId = this.progression.sections[0]?.id;
     }
+    this.render();
   }
 
   // ===== DATA & STATE MANAGEMENT =====
@@ -65,9 +68,9 @@ class ChordProgressionApp {
       const saved = localStorage.getItem('chordProgression');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Basic validation to ensure we're not loading malformed data
         if (parsed && Array.isArray(parsed.sections)) {
           this.progression = { ...this.getDefaultProgression(), ...parsed };
+          this.activeSectionId = this.progression.sections[0]?.id;
         }
       }
     } catch (e) {
@@ -79,20 +82,25 @@ class ChordProgressionApp {
   updateProgressionField(field, value) {
     if (field in this.progression) {
       this.progression[field] = value;
-      if (field === 'key' || field === 'displayMode') {
-        this.render();
-      }
       this.saveToStorage();
     }
   }
 
-  // ===== AUDIO SYSTEM =====
+  setActiveSection(sectionId) {
+    this.activeSectionId = sectionId;
+    this.render();
+  }
+
+  getActiveSection() {
+    return this.progression.sections.find(s => s.id === this.activeSectionId);
+  }
+
+  // ===== AUDIO SYSTEM (omitted for brevity, assuming no changes) =====
   initAudio() {
     try {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     } catch (e) {
       console.warn('Web Audio API not supported. Playback will be disabled.');
-      alert('Your browser does not support the Web Audio API, so playback is disabled.');
     }
   }
 
@@ -153,6 +161,7 @@ class ChordProgressionApp {
     });
   }
 
+
   // ===== PLAYBACK CONTROLS =====
   togglePlayback() {
     if (this.audioContext && this.audioContext.state === 'suspended') {
@@ -162,8 +171,8 @@ class ChordProgressionApp {
   }
 
   startPlayback() {
-    const allBars = this.progression.sections.flatMap(s => s.bars);
-    if (allBars.length === 0) return;
+    const activeSection = this.getActiveSection();
+    if (!activeSection || activeSection.bars.length === 0) return;
 
     this.isPlaying = true;
     this.updatePlayButton();
@@ -173,22 +182,30 @@ class ChordProgressionApp {
     const barDurationMs = beatDuration * 4 * 1000;
 
     const tick = () => {
-      const bar = allBars[this.currentBarIndex];
+      const bar = activeSection.bars[this.currentBarIndex];
       this.highlightBar(bar.id);
       
-      // Play the first valid chord in the bar
       const chordToPlay = bar.chords.find(c => c);
       if (chordToPlay) {
         this.playChord(chordToPlay);
       }
 
       this.currentBarIndex++;
-      if (this.currentBarIndex >= allBars.length) {
+      if (this.currentBarIndex >= activeSection.bars.length) {
+        // Handle repeats
+        const lastBar = activeSection.bars[activeSection.bars.length - 1];
+        if (lastBar.repeatEnd) {
+          const repeatStartIndex = activeSection.bars.findIndex(b => b.repeatStart);
+          this.currentBarIndex = repeatStartIndex !== -1 ? repeatStartIndex : 0;
+          // Play again immediately
+          tick();
+          return;
+        }
         this.stopPlayback();
       }
     };
 
-    tick(); // Play first bar immediately
+    tick();
     if (this.isPlaying) {
       this.playInterval = setInterval(tick, barDurationMs);
     }
@@ -229,7 +246,6 @@ class ChordProgressionApp {
     this.clearHighlights();
     const barEl = document.querySelector(`.bar[data-id="${barId}"]`);
     if (barEl) {
-      // Highlight the first slot of the bar
       const firstSlot = barEl.querySelector('.slot');
       if (firstSlot) {
         firstSlot.classList.add('playing');
@@ -244,7 +260,8 @@ class ChordProgressionApp {
   // ===== DOM MANIPULATION & RENDERING =====
   render() {
     this.renderSongInfo();
-    this.renderSections();
+    this.renderSectionList();
+    this.renderBars();
     this.saveToStorage();
   }
 
@@ -255,50 +272,68 @@ class ChordProgressionApp {
     document.getElementById('bpmInput').value = this.progression.bpm;
   }
 
-  renderSections() {
-    const sectionsContainer = document.querySelector('.sections');
-    sectionsContainer.innerHTML = '';
-    let globalBarIndex = 1;
+  renderSectionList() {
+    const sectionListContainer = document.querySelector('.section-list');
+    sectionListContainer.innerHTML = '';
     this.progression.sections.forEach(section => {
-      const sectionEl = this.createSectionElement(section, globalBarIndex);
-      sectionsContainer.appendChild(sectionEl);
-      globalBarIndex += section.bars.length;
+      const itemEl = document.createElement('div');
+      itemEl.className = 'section-list-item';
+      itemEl.dataset.id = section.id;
+      if (section.id === this.activeSectionId) {
+        itemEl.classList.add('active');
+      }
+      
+      itemEl.innerHTML = `
+        <input class="section-item-name" value="${section.name}" data-action="update-section-name" placeholder="Section Name" />
+        <button class="header-btn icon-btn delete-section-btn" data-action="delete-section" title="Delete Section">
+          <svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </button>
+      `;
+      sectionListContainer.appendChild(itemEl);
     });
   }
 
-  createSectionElement(section, startingBarNum) {
-    const sectionEl = document.createElement('div');
-    sectionEl.className = 'section';
-    sectionEl.dataset.id = section.id;
+  renderBars() {
+    const barsContainer = document.querySelector('.bars-container');
+    barsContainer.innerHTML = '';
+    const activeSection = this.getActiveSection();
 
-    sectionEl.innerHTML = `
-      <div class="section-header">
-        <input class="section-title" value="${section.name}" data-action="update-section-name" placeholder="Section Name" />
-        <div class="section-controls">
-          <button class="header-btn icon-btn" data-action="add-bar" title="Add Bar">
-            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-          </button>
-          <button class="header-btn icon-btn delete-section-btn" data-action="delete-section" title="Delete Section">
-            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="bars-grid">
-        ${section.bars.map((bar, i) => this.createBarHTML(section.id, bar, i + startingBarNum)).join('')}
-      </div>
-    `;
-    return sectionEl;
+    if (!activeSection) {
+      barsContainer.innerHTML = `
+        <div class="no-section-selected">
+          <p>Select a section on the left to view its bars, or add a new one.</p>
+        </div>`;
+      return;
+    }
+
+    activeSection.bars.forEach((bar, index) => {
+      const barEl = this.createBarElement(activeSection.id, bar, index + 1);
+      barsContainer.appendChild(barEl);
+    });
   }
 
-  createBarHTML(sectionId, bar, barNumber) {
-    return `
-      <div class="bar" data-id="${bar.id}">
+  createBarElement(sectionId, bar, barNumber) {
+    const barEl = document.createElement('div');
+    barEl.className = 'bar';
+    barEl.dataset.id = bar.id;
+    if (bar.repeatStart) barEl.classList.add('repeat-start');
+    if (bar.repeatEnd) barEl.classList.add('repeat-end');
+
+    barEl.innerHTML = `
+      <div class="bar-header">
         <div class="bar-number">${barNumber}</div>
-        <div class="slots">
-          ${bar.chords.map((chord, slotIndex) => this.createSlotHTML(sectionId, bar.id, slotIndex, chord)).join('')}
+        <div class="bar-controls">
+          <button class="repeat-btn ${bar.repeatStart ? 'active' : ''}" data-action="toggle-repeat-start" title="Toggle Repeat Start">||:</button>
+          <button class="repeat-btn ${bar.repeatEnd ? 'active' : ''}" data-action="toggle-repeat-end" title="Toggle Repeat End">:||</button>
         </div>
       </div>
+      <div class="slots">
+        ${bar.chords.map((chord, slotIndex) => this.createSlotHTML(sectionId, bar.id, slotIndex, chord)).join('')}
+      </div>
+      ${bar.repeatStart ? '<div class="repeat-sign repeat-start-sign">||:</div>' : ''}
+      ${bar.repeatEnd ? '<div class="repeat-sign repeat-end-sign">:||</div>' : ''}
     `;
+    return barEl;
   }
 
   createSlotHTML(sectionId, barId, slotIndex, chord) {
@@ -320,7 +355,6 @@ class ChordProgressionApp {
   }
 
   getDisplayChord(chord) {
-    // This logic can be expanded for absolute chords
     return chord.root;
   }
 
@@ -332,12 +366,16 @@ class ChordProgressionApp {
       bars: Array.from({ length: 4 }, () => this.createEmptyBar())
     };
     this.progression.sections.push(newSection);
+    this.activeSectionId = newSection.id;
     this.render();
   }
 
   deleteSection(sectionId) {
     if (confirm('Are you sure you want to delete this section?')) {
       this.progression.sections = this.progression.sections.filter(s => s.id !== sectionId);
+      if (this.activeSectionId === sectionId) {
+        this.activeSectionId = this.progression.sections[0]?.id || null;
+      }
       this.render();
     }
   }
@@ -350,18 +388,22 @@ class ChordProgressionApp {
     }
   }
 
-  addBar(sectionId) {
-    const section = this.progression.sections.find(s => s.id === sectionId);
-    if (section) {
-      section.bars.push(this.createEmptyBar());
-      this.render();
+  toggleRepeat(barId, type) {
+    const section = this.getActiveSection();
+    const bar = section?.bars.find(b => b.id === barId);
+    if (bar) {
+      bar[type] = !bar[type];
+      this.renderBars();
+      this.saveToStorage();
     }
   }
 
   createEmptyBar() {
     return {
       id: `b_${Date.now()}_${Math.random()}`,
-      chords: [null, null, null, null]
+      chords: [null, null, null, null],
+      repeatStart: false,
+      repeatEnd: false
     };
   }
 
@@ -372,9 +414,10 @@ class ChordProgressionApp {
       if (newChordData) {
         bar.chords[slotIndex] = { ...bar.chords[slotIndex], ...newChordData };
       } else {
-        bar.chords[slotIndex] = null; // Clear the chord
+        bar.chords[slotIndex] = null;
       }
-      this.render();
+      this.renderBars();
+      this.saveToStorage();
     }
   }
 
@@ -422,16 +465,17 @@ class ChordProgressionApp {
 
   // ===== EVENT HANDLING =====
   setupEventListeners() {
-    // Delegated main click handler
     document.addEventListener('click', e => {
       const target = e.target;
       const actionEl = target.closest('[data-action]');
-      
+      const sectionItemEl = target.closest('.section-list-item');
+
       if (actionEl) {
+        e.stopPropagation();
         const action = actionEl.dataset.action;
         const value = actionEl.dataset.value;
         const slotEl = target.closest('.slot');
-        const sectionEl = target.closest('.section');
+        const barEl = target.closest('.bar');
 
         switch (action) {
           case 'select-chord':
@@ -443,29 +487,30 @@ class ChordProgressionApp {
             this.closeAllSelectors();
             break;
           case 'delete-chord':
-            e.stopPropagation();
             this.updateChord(slotEl.dataset.sectionId, slotEl.dataset.barId, slotEl.dataset.slotIndex, null);
             break;
           case 'add-section':
             this.addSection();
             break;
-          case 'add-bar':
-            this.addBar(sectionEl.dataset.id);
-            break;
           case 'delete-section':
-            this.deleteSection(sectionEl.dataset.id);
+            this.deleteSection(target.closest('.section-list-item').dataset.id);
+            break;
+          case 'toggle-repeat-start':
+            this.toggleRepeat(barEl.dataset.id, 'repeatStart');
+            break;
+          case 'toggle-repeat-end':
+            this.toggleRepeat(barEl.dataset.id, 'repeatEnd');
             break;
         }
+      } else if (sectionItemEl) {
+        this.setActiveSection(sectionItemEl.dataset.id);
       } else if (target.closest('.slot')) {
-        // Open chord selector on left click
         this.openChordSelector(target.closest('.slot'));
       } else if (!target.closest('.chord-selector, .extension-selector')) {
-        // Close selectors if clicking outside
         this.closeAllSelectors();
       }
     });
 
-    // Delegated context menu (right-click) handler
     document.addEventListener('contextmenu', e => {
       const slotEl = e.target.closest('.slot');
       if (slotEl && slotEl.classList.contains('has-chord')) {
@@ -474,16 +519,16 @@ class ChordProgressionApp {
       }
     });
 
-    // Delegated input/change handler
     document.addEventListener('input', e => {
       const target = e.target;
       if (target.dataset.field) {
         this.updateProgressionField(target.dataset.field, target.value);
       } else if (target.dataset.action === 'update-section-name') {
-        const sectionId = target.closest('.section').dataset.id;
+        const sectionId = target.closest('.section-list-item').dataset.id;
         this.updateSectionName(sectionId, target.value);
       }
     });
+    
     document.addEventListener('change', e => {
         const target = e.target;
         if (target.dataset.field) {
@@ -491,11 +536,9 @@ class ChordProgressionApp {
         }
     });
 
-    // Global handlers
     document.getElementById('playBtn').addEventListener('click', () => this.togglePlayback());
     document.querySelector('.btn-import').addEventListener('click', () => this.importJSON());
     document.querySelector('.btn-export').addEventListener('click', () => this.exportJSON());
-    document.querySelector('.btn-add-section').addEventListener('click', () => this.addSection());
 
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') this.closeAllSelectors();
@@ -519,6 +562,7 @@ class ChordProgressionApp {
           const imported = JSON.parse(event.target.result);
           if (imported && Array.isArray(imported.sections)) {
             this.progression = { ...this.getDefaultProgression(), ...imported };
+            this.activeSectionId = this.progression.sections[0]?.id || null;
             this.stopPlayback();
             this.render();
           } else {
