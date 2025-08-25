@@ -122,23 +122,46 @@ function render() {
         slotsContainer.appendChild(slotEl);
       }
 
+      // Bar controls (hidden by default, shown on hover)
+      const barControls = document.createElement('div');
+      barControls.className = 'bar-controls';
+      
+      const deleteBarBtn = document.createElement('button');
+      deleteBarBtn.className = 'btn-bar danger';
+      deleteBarBtn.textContent = '×';
+      deleteBarBtn.title = 'Delete bar';
+      deleteBarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        section.bars.splice(bIdx, 1);
+        render();
+      });
+      
+      barControls.appendChild(deleteBarBtn);
+      barEl.appendChild(barControls);
+
       barEl.appendChild(slotsContainer);
       barsContainer.appendChild(barEl);
     });
 
     sectionEl.appendChild(label);
     sectionEl.appendChild(barsContainer);
-    els.sections.appendChild(sectionEl);
 
-    // Section controls
-    const controls = document.createElement('div');
-    controls.className = 'section-controls';
+    // Section controls (hidden by default, shown on hover)
+    const sectionControls = document.createElement('div');
+    sectionControls.className = 'section-controls';
     
     const addBarBtn = button('+ Bar', 'btn', () => { section.bars.push(makeBar()); render(); });
-    const delBtn = button('Delete Section', 'btn danger', () => { state.sections.splice(sIdx, 1); render(); });
+    const deleteSectionBtn = button('Delete', 'btn danger', () => { 
+      if (confirm('Delete this section?')) {
+        state.sections.splice(sIdx, 1); 
+        render(); 
+      }
+    });
     
-    controls.append(addBarBtn, delBtn);
-    els.sections.appendChild(controls);
+    sectionControls.append(addBarBtn, deleteSectionBtn);
+    sectionEl.appendChild(sectionControls);
+    
+    els.sections.appendChild(sectionEl);
   });
 }
 

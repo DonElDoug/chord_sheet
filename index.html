@@ -18,11 +18,17 @@
       <input id="songBpm" class="text-input bpm" placeholder="BPM" aria-label="BPM" type="number" min="40" max="200" />
       <input id="songKey" class="text-input key" placeholder="Key" aria-label="Key" />
     </div>
-    <button id="addSectionBtn" class="btn-add">+ Section</button>
   </header>
 
   <main id="main" class="main">
     <div id="sectionsContainer" class="sections"></div>
+    
+    <div class="add-section-area">
+      <button id="addSectionBtn" class="btn-add-section">
+        <span class="add-icon">+</span>
+        <span>Add Section</span>
+      </button>
+    </div>
   </main>
 
   <footer class="app-footer">
