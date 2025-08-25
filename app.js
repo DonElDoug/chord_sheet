@@ -1,596 +1,604 @@
-/**
- * Chord Progression Application
- * 
- * A vanilla JS web app for creating, playing, and sharing chord progressions.
- * Features:
- * - Section-based arrangement
- * - 4x4 grid for bars and slots
- * - Inline, context-aware chord editing (left-click for root, right-click for extension)
- * - Web Audio API playback with BPM and Key control
- * - LocalStorage persistence
- * - JSON Import/Export
- * - Clean, modern, dark UI
- */
-
-// ===== APPLICATION CLASS =====
+// ===== CHORD PROGRESSION APP =====
 class ChordProgressionApp {
   constructor() {
-    this.progression = this.getDefaultProgression();
-    this.activeSectionId = null;
+    // Core State
+    this.bars = JSON.parse(localStorage.getItem('chord-progression') || '[]');
+    this.songTitle = localStorage.getItem('song-title') || 'Untitled Song';
+    this.key = localStorage.getItem('key') || 'C';
+    this.bpm = parseInt(localStorage.getItem('bpm') || '120');
+    
+    // Playback State
     this.isPlaying = false;
-    this.playInterval = null;
+    this.playPosition = 0;
+    this.playTimeout = null;
     this.audioContext = null;
-    this.currentEdit = null;
-    this.saveTimeout = null;
-    this.currentBarIndex = 0;
-
+    
+    // UI State
+    this.currentBar = null;
+    this.currentSlot = null;
+    
+    // DOM Elements
+    this.elements = {
+      songTitle: document.getElementById('song-title'),
+      keySelector: document.getElementById('key-selector'),
+      bpmDisplay: document.getElementById('bpm-display'),
+      bpmSlider: document.getElementById('bpm-slider'),
+      playBtn: document.getElementById('play-btn'),
+      addBarBtn: document.getElementById('add-bar-btn'),
+      clearBtn: document.getElementById('clear-btn'),
+      exportBtn: document.getElementById('export-btn'),
+      importBtn: document.getElementById('import-btn'),
+      importFile: document.getElementById('import-file'),
+      progression: document.getElementById('progression'),
+      playhead: document.getElementById('playhead'),
+      chordModal: document.getElementById('chord-modal'),
+      extensionModal: document.getElementById('extension-modal'),
+      repeatModal: document.getElementById('repeat-modal')
+    };
+    
+    // Roman Numeral System
+    this.romanNumerals = {
+      'C': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'C#': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'Db': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'D': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'D#': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'Eb': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'E': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'F': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'F#': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'Gb': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'G': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'G#': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'Ab': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'A': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'A#': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'Bb': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+      'B': ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°']
+    };
+    
+    // Note frequencies for audio
+    this.noteFrequencies = {
+      'C': 261.63, 'C#': 277.18, 'Db': 277.18, 'D': 293.66,
+      'D#': 311.13, 'Eb': 311.13, 'E': 329.63, 'F': 349.23,
+      'F#': 369.99, 'Gb': 369.99, 'G': 392.00, 'G#': 415.30,
+      'Ab': 415.30, 'A': 440.00, 'A#': 466.16, 'Bb': 466.16, 'B': 493.88
+    };
+    
     this.init();
   }
 
+  // ===== INITIALIZATION =====
   init() {
-    this.initAudio();
-    this.loadFromStorage();
     this.setupEventListeners();
-    
-    if (this.progression.sections.length === 0) {
-      this.addSection();
-    } else {
-      // If we have sections, make the first one active
-      this.activeSectionId = this.progression.sections[0]?.id;
-    }
+    this.loadData();
     this.render();
+    console.log('🎵 Chord Progression App initialized');
   }
 
-  // ===== DATA & STATE MANAGEMENT =====
-  getDefaultProgression() {
-    return {
-      title: "Untitled Progression",
-      artist: "Artist Name",
-      key: "C",
-      bpm: 120,
-      sections: []
-    };
-  }
-
-  saveToStorage() {
-    if (this.saveTimeout) clearTimeout(this.saveTimeout);
-    this.saveTimeout = setTimeout(() => {
-      try {
-        localStorage.setItem('chordProgression', JSON.stringify(this.progression));
-      } catch (e) {
-        console.error('Failed to save to localStorage:', e);
-      }
-    }, 200);
-  }
-
-  loadFromStorage() {
-    try {
-      const saved = localStorage.getItem('chordProgression');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.sections)) {
-          this.progression = { ...this.getDefaultProgression(), ...parsed };
-          this.activeSectionId = this.progression.sections[0]?.id;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load from localStorage:', e);
-      this.progression = this.getDefaultProgression();
-    }
-  }
-
-  updateProgressionField(field, value) {
-    if (field in this.progression) {
-      this.progression[field] = value;
-      this.saveToStorage();
-    }
-  }
-
-  setActiveSection(sectionId) {
-    this.activeSectionId = sectionId;
-    this.render();
-  }
-
-  getActiveSection() {
-    return this.progression.sections.find(s => s.id === this.activeSectionId);
-  }
-
-  // ===== AUDIO SYSTEM (omitted for brevity, assuming no changes) =====
-  initAudio() {
-    try {
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {
-      console.warn('Web Audio API not supported. Playback will be disabled.');
-    }
-  }
-
-  getNoteFrequency(note) {
-    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const key = this.progression.key.replace('b', '#'); // Normalize flats to sharps for simplicity
-    const keyIndex = notes.indexOf(key.endsWith('#') ? key.slice(0, 2) : key.slice(0, 1));
+  setupEventListeners() {
+    // Header Controls
+    this.elements.songTitle.addEventListener('input', () => this.saveSongTitle());
+    this.elements.keySelector.addEventListener('change', () => this.changeKey());
+    this.elements.bpmSlider.addEventListener('input', () => this.changeBPM());
+    this.elements.playBtn.addEventListener('click', () => this.togglePlayback());
     
-    const noteIndex = notes.indexOf(note);
-    let octave = 4;
-    if (noteIndex < keyIndex) octave++;
-
-    return 440 * Math.pow(2, (noteIndex - 9 + (octave - 4) * 12) / 12);
-  }
-
-  getChordFrequencies(roman) {
-    const scaleDegrees = {
-      'I': 0, 'ii': 2, 'iii': 4, 'IV': 5, 'V': 7, 'vi': 9, 'vii°': 11
-    };
-    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const keyIndex = notes.indexOf(this.progression.key.charAt(0));
-
-    const rootDegree = scaleDegrees[roman];
-    if (rootDegree === undefined) return [];
-
-    const rootNoteIndex = (keyIndex + rootDegree) % 12;
-    const thirdNoteIndex = (rootNoteIndex + (roman === roman.toLowerCase() ? 3 : 4)) % 12; // Minor or Major third
-    const fifthNoteIndex = (rootNoteIndex + 7) % 12;
-
-    return [
-      this.getNoteFrequency(notes[rootNoteIndex]),
-      this.getNoteFrequency(notes[thirdNoteIndex]),
-      this.getNoteFrequency(notes[fifthNoteIndex])
-    ];
-  }
-
-  playChord(chord) {
-    if (!this.audioContext || !chord || !chord.root) return;
+    // Controls
+    this.elements.addBarBtn.addEventListener('click', () => this.addBar());
+    this.elements.clearBtn.addEventListener('click', () => this.clearAll());
+    this.elements.exportBtn.addEventListener('click', () => this.exportData());
+    this.elements.importBtn.addEventListener('click', () => this.elements.importFile.click());
+    this.elements.importFile.addEventListener('change', (e) => this.importData(e));
     
-    const frequencies = this.getChordFrequencies(chord.root);
-    if (frequencies.length === 0) return;
+    // Progression (Event Delegation)
+    this.elements.progression.addEventListener('click', (e) => this.handleProgressionClick(e));
+    this.elements.progression.addEventListener('contextmenu', (e) => this.handleProgressionRightClick(e));
+    
+    // Modal Handlers
+    this.setupModalHandlers();
+    
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+    
+    // Audio Context (on user gesture)
+    document.addEventListener('click', () => this.initAudio(), { once: true });
+  }
 
-    const playTime = this.audioContext.currentTime;
-    const duration = (60 / this.progression.bpm) * 0.8; // Play for 80% of a beat
-
-    frequencies.forEach(freq => {
-      const osc = this.audioContext.createOscillator();
-      const gain = this.audioContext.createGain();
-      osc.connect(gain);
-      gain.connect(this.audioContext.destination);
-
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.1, playTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, playTime + duration);
-
-      osc.start(playTime);
-      osc.stop(playTime + duration);
+  setupModalHandlers() {
+    // Close modals on backdrop click
+    [this.elements.chordModal, this.elements.extensionModal, this.elements.repeatModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) this.closeModals();
+      });
+    });
+    
+    // Chord selection
+    this.elements.chordModal.addEventListener('click', (e) => {
+      if (e.target.classList.contains('chord-btn')) {
+        this.selectChord(e.target.dataset.chord);
+      }
+    });
+    
+    // Extension selection
+    this.elements.extensionModal.addEventListener('click', (e) => {
+      if (e.target.classList.contains('ext-btn')) {
+        this.selectExtension(e.target.dataset.extension);
+      } else if (e.target.classList.contains('btn-clear-ext')) {
+        this.clearExtension();
+      }
+    });
+    
+    // Repeat selection
+    this.elements.repeatModal.addEventListener('click', (e) => {
+      if (e.target.classList.contains('repeat-btn')) {
+        this.selectRepeat(e.target.dataset.repeat);
+      }
     });
   }
 
-
-  // ===== PLAYBACK CONTROLS =====
-  togglePlayback() {
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume();
-    }
-    this.isPlaying ? this.stopPlayback() : this.startPlayback();
-  }
-
-  startPlayback() {
-    const activeSection = this.getActiveSection();
-    if (!activeSection || activeSection.bars.length === 0) return;
-
-    this.isPlaying = true;
-    this.updatePlayButton();
-    this.currentBarIndex = 0;
-
-    const beatDuration = 60 / this.progression.bpm;
-    const barDurationMs = beatDuration * 4 * 1000;
-
-    const tick = () => {
-      const bar = activeSection.bars[this.currentBarIndex];
-      this.highlightBar(bar.id);
-      
-      const chordToPlay = bar.chords.find(c => c);
-      if (chordToPlay) {
-        this.playChord(chordToPlay);
-      }
-
-      this.currentBarIndex++;
-      if (this.currentBarIndex >= activeSection.bars.length) {
-        // Handle repeats
-        const lastBar = activeSection.bars[activeSection.bars.length - 1];
-        if (lastBar.repeatEnd) {
-          const repeatStartIndex = activeSection.bars.findIndex(b => b.repeatStart);
-          this.currentBarIndex = repeatStartIndex !== -1 ? repeatStartIndex : 0;
-          // Play again immediately
-          tick();
-          return;
-        }
-        this.stopPlayback();
-      }
-    };
-
-    tick();
-    if (this.isPlaying) {
-      this.playInterval = setInterval(tick, barDurationMs);
-    }
-  }
-
-  stopPlayback() {
-    this.isPlaying = false;
-    if (this.playInterval) {
-      clearInterval(this.playInterval);
-      this.playInterval = null;
-    }
-    this.updatePlayButton();
-    this.clearHighlights();
-  }
-
-  updatePlayButton() {
-    const playBtn = document.getElementById('playBtn');
-    if (!playBtn) return;
+  // ===== DATA MANAGEMENT =====
+  loadData() {
+    this.elements.songTitle.value = this.songTitle;
+    this.elements.keySelector.value = this.key;
+    this.elements.bpmSlider.value = this.bpm;
+    this.elements.bpmDisplay.textContent = this.bpm;
     
-    const playIcon = playBtn.querySelector('.play-icon-path');
-    const pauseIcon = playBtn.querySelector('.pause-icon-path');
-    const text = playBtn.querySelector('.play-text');
-
-    if (this.isPlaying) {
-      playBtn.classList.add('playing');
-      playIcon.style.display = 'none';
-      pauseIcon.style.display = 'block';
-      text.textContent = 'Pause';
-    } else {
-      playBtn.classList.remove('playing');
-      playIcon.style.display = 'block';
-      pauseIcon.style.display = 'none';
-      text.textContent = 'Play';
+    if (this.bars.length === 0) {
+      this.addBar(); // Start with one bar
     }
   }
 
-  highlightBar(barId) {
-    this.clearHighlights();
-    const barEl = document.querySelector(`.bar[data-id="${barId}"]`);
-    if (barEl) {
-      const firstSlot = barEl.querySelector('.slot');
-      if (firstSlot) {
-        firstSlot.classList.add('playing');
-      }
-    }
+  saveData() {
+    localStorage.setItem('chord-progression', JSON.stringify(this.bars));
+    localStorage.setItem('song-title', this.songTitle);
+    localStorage.setItem('key', this.key);
+    localStorage.setItem('bpm', this.bpm.toString());
   }
 
-  clearHighlights() {
-    document.querySelectorAll('.slot.playing').forEach(el => el.classList.remove('playing'));
+  saveSongTitle() {
+    this.songTitle = this.elements.songTitle.value;
+    this.saveData();
   }
 
-  // ===== DOM MANIPULATION & RENDERING =====
-  render() {
-    this.renderSongInfo();
-    this.renderSectionList();
-    this.renderBars();
-    this.saveToStorage();
+  changeKey() {
+    this.key = this.elements.keySelector.value;
+    this.saveData();
   }
 
-  renderSongInfo() {
-    document.getElementById('songTitle').value = this.progression.title;
-    document.getElementById('songArtist').value = this.progression.artist;
-    document.getElementById('keySelect').value = this.progression.key;
-    document.getElementById('bpmInput').value = this.progression.bpm;
+  changeBPM() {
+    this.bpm = parseInt(this.elements.bpmSlider.value);
+    this.elements.bpmDisplay.textContent = this.bpm;
+    this.saveData();
   }
 
-  renderSectionList() {
-    const sectionListContainer = document.querySelector('.section-list');
-    sectionListContainer.innerHTML = '';
-    this.progression.sections.forEach(section => {
-      const itemEl = document.createElement('div');
-      itemEl.className = 'section-list-item';
-      itemEl.dataset.id = section.id;
-      if (section.id === this.activeSectionId) {
-        itemEl.classList.add('active');
-      }
-      
-      itemEl.innerHTML = `
-        <input class="section-item-name" value="${section.name}" data-action="update-section-name" placeholder="Section Name" />
-        <button class="header-btn icon-btn delete-section-btn" data-action="delete-section" title="Delete Section">
-          <svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-        </button>
-      `;
-      sectionListContainer.appendChild(itemEl);
-    });
-  }
-
-  renderBars() {
-    const barsContainer = document.querySelector('.bars-container');
-    barsContainer.innerHTML = '';
-    const activeSection = this.getActiveSection();
-
-    if (!activeSection) {
-      barsContainer.innerHTML = `
-        <div class="no-section-selected">
-          <p>Select a section on the left to view its bars, or add a new one.</p>
-        </div>`;
-      return;
-    }
-
-    activeSection.bars.forEach((bar, index) => {
-      const barEl = this.createBarElement(activeSection.id, bar, index + 1);
-      barsContainer.appendChild(barEl);
-    });
-  }
-
-  createBarElement(sectionId, bar, barNumber) {
-    const barEl = document.createElement('div');
-    barEl.className = 'bar';
-    barEl.dataset.id = bar.id;
-    if (bar.repeatStart) barEl.classList.add('repeat-start');
-    if (bar.repeatEnd) barEl.classList.add('repeat-end');
-
-    barEl.innerHTML = `
-      <div class="bar-header">
-        <div class="bar-number">${barNumber}</div>
-        <div class="bar-controls">
-          <button class="repeat-btn ${bar.repeatStart ? 'active' : ''}" data-action="toggle-repeat-start" title="Toggle Repeat Start">||:</button>
-          <button class="repeat-btn ${bar.repeatEnd ? 'active' : ''}" data-action="toggle-repeat-end" title="Toggle Repeat End">:||</button>
-        </div>
-      </div>
-      <div class="slots">
-        ${bar.chords.map((chord, slotIndex) => this.createSlotHTML(sectionId, bar.id, slotIndex, chord)).join('')}
-      </div>
-      ${bar.repeatStart ? '<div class="repeat-sign repeat-start-sign">||:</div>' : ''}
-      ${bar.repeatEnd ? '<div class="repeat-sign repeat-end-sign">:||</div>' : ''}
-    `;
-    return barEl;
-  }
-
-  createSlotHTML(sectionId, barId, slotIndex, chord) {
-    const hasChord = chord && chord.root;
-    return `
-      <div class="slot ${hasChord ? 'has-chord' : ''}" data-section-id="${sectionId}" data-bar-id="${barId}" data-slot-index="${slotIndex}">
-        ${hasChord
-          ? `
-            <div class="chord-display">
-              <span class="chord-name">${this.getDisplayChord(chord)}</span>
-              ${chord.extension ? `<sup class="chord-extension">${chord.extension}</sup>` : ''}
-            </div>
-            <button class="delete-chord-btn" data-action="delete-chord" title="Delete Chord">×</button>
-          `
-          : '<div class="add-chord-placeholder">+</div>'
-        }
-      </div>
-    `;
-  }
-
-  getDisplayChord(chord) {
-    return chord.root;
-  }
-
-  // ===== ACTIONS (triggered by events) =====
-  addSection() {
-    const newSection = {
-      id: `s_${Date.now()}`,
-      name: `Section ${this.progression.sections.length + 1}`,
-      bars: Array.from({ length: 4 }, () => this.createEmptyBar())
+  // ===== BAR MANAGEMENT =====
+  addBar() {
+    const newBar = {
+      id: Date.now(),
+      slots: [null, null, null, null],
+      repeat: null
     };
-    this.progression.sections.push(newSection);
-    this.activeSectionId = newSection.id;
+    this.bars.push(newBar);
+    this.saveData();
     this.render();
   }
 
-  deleteSection(sectionId) {
-    if (confirm('Are you sure you want to delete this section?')) {
-      this.progression.sections = this.progression.sections.filter(s => s.id !== sectionId);
-      if (this.activeSectionId === sectionId) {
-        this.activeSectionId = this.progression.sections[0]?.id || null;
-      }
+  removeBar(barId) {
+    this.bars = this.bars.filter(bar => bar.id !== barId);
+    this.saveData();
+    this.render();
+  }
+
+  // ===== CHORD MANAGEMENT =====
+  handleProgressionClick(e) {
+    e.preventDefault();
+    
+    const slot = e.target.closest('.slot');
+    const deleteBtn = e.target.closest('.delete-btn');
+    const barRepeat = e.target.closest('.bar-repeat');
+    const removeBarBtn = e.target.closest('.remove-bar');
+    
+    if (deleteBtn) {
+      this.deleteChord(slot);
+    } else if (barRepeat) {
+      this.openRepeatModal(barRepeat.dataset.barId);
+    } else if (removeBarBtn) {
+      this.removeBar(parseInt(removeBarBtn.dataset.barId));
+    } else if (slot) {
+      this.openChordModal(slot);
+    }
+  }
+
+  handleProgressionRightClick(e) {
+    e.preventDefault();
+    
+    const slot = e.target.closest('.slot');
+    if (slot && slot.dataset.chord) {
+      this.openExtensionModal(slot);
+    }
+  }
+
+  openChordModal(slot) {
+    this.currentBar = parseInt(slot.dataset.barId);
+    this.currentSlot = parseInt(slot.dataset.slotIndex);
+    this.populateChordModal();
+    this.elements.chordModal.classList.add('active');
+  }
+
+  openExtensionModal(slot) {
+    this.currentBar = parseInt(slot.dataset.barId);
+    this.currentSlot = parseInt(slot.dataset.slotIndex);
+    this.elements.extensionModal.classList.add('active');
+  }
+
+  openRepeatModal(barId) {
+    this.currentBar = parseInt(barId);
+    this.elements.repeatModal.classList.add('active');
+  }
+
+  populateChordModal() {
+    const chordGrid = this.elements.chordModal.querySelector('.chord-grid');
+    const romanNumerals = this.romanNumerals[this.key];
+    
+    chordGrid.innerHTML = romanNumerals.map(numeral => 
+      `<button class="chord-btn" data-chord="${numeral}">${numeral}</button>`
+    ).join('');
+  }
+
+  selectChord(chord) {
+    const bar = this.bars.find(b => b.id === this.currentBar);
+    if (bar) {
+      bar.slots[this.currentSlot] = { chord, extension: null };
+      this.saveData();
+      this.render();
+      this.playChordSound(chord);
+    }
+    this.closeModals();
+  }
+
+  selectExtension(extension) {
+    const bar = this.bars.find(b => b.id === this.currentBar);
+    if (bar && bar.slots[this.currentSlot]) {
+      bar.slots[this.currentSlot].extension = extension;
+      this.saveData();
+      this.render();
+    }
+    this.closeModals();
+  }
+
+  clearExtension() {
+    const bar = this.bars.find(b => b.id === this.currentBar);
+    if (bar && bar.slots[this.currentSlot]) {
+      bar.slots[this.currentSlot].extension = null;
+      this.saveData();
+      this.render();
+    }
+    this.closeModals();
+  }
+
+  selectRepeat(repeat) {
+    const bar = this.bars.find(b => b.id === this.currentBar);
+    if (bar) {
+      bar.repeat = repeat === 'none' ? null : repeat;
+      this.saveData();
+      this.render();
+    }
+    this.closeModals();
+  }
+
+  deleteChord(slot) {
+    const barId = parseInt(slot.dataset.barId);
+    const slotIndex = parseInt(slot.dataset.slotIndex);
+    
+    const bar = this.bars.find(b => b.id === barId);
+    if (bar) {
+      bar.slots[slotIndex] = null;
+      this.saveData();
       this.render();
     }
   }
 
-  updateSectionName(sectionId, newName) {
-    const section = this.progression.sections.find(s => s.id === sectionId);
-    if (section) {
-      section.name = newName;
-      this.saveToStorage();
+  closeModals() {
+    this.elements.chordModal.classList.remove('active');
+    this.elements.extensionModal.classList.remove('active');
+    this.elements.repeatModal.classList.remove('active');
+    this.currentBar = null;
+    this.currentSlot = null;
+  }
+
+  // ===== RENDERING =====
+  render() {
+    this.renderProgression();
+  }
+
+  renderProgression() {
+    const rows = [];
+    for (let i = 0; i < this.bars.length; i += 4) {
+      rows.push(this.bars.slice(i, i + 4));
     }
+
+    this.elements.progression.innerHTML = rows.map((row, rowIndex) => 
+      `<div class="bar-row">
+        ${row.map((bar, index) => this.renderBar(bar, rowIndex * 4 + index + 1)).join('')}
+      </div>`
+    ).join('');
   }
 
-  toggleRepeat(barId, type) {
-    const section = this.getActiveSection();
-    const bar = section?.bars.find(b => b.id === barId);
-    if (bar) {
-      bar[type] = !bar[type];
-      this.renderBars();
-      this.saveToStorage();
-    }
-  }
-
-  createEmptyBar() {
-    return {
-      id: `b_${Date.now()}_${Math.random()}`,
-      chords: [null, null, null, null],
-      repeatStart: false,
-      repeatEnd: false
-    };
-  }
-
-  updateChord(sectionId, barId, slotIndex, newChordData) {
-    const section = this.progression.sections.find(s => s.id === sectionId);
-    const bar = section?.bars.find(b => b.id === barId);
-    if (bar) {
-      if (newChordData) {
-        bar.chords[slotIndex] = { ...bar.chords[slotIndex], ...newChordData };
-      } else {
-        bar.chords[slotIndex] = null;
-      }
-      this.renderBars();
-      this.saveToStorage();
-    }
-  }
-
-  // ===== INLINE SELECTORS =====
-  openChordSelector(slotEl) {
-    this.closeAllSelectors();
-    document.body.classList.add('selector-open');
-
-    const selector = document.createElement('div');
-    selector.className = 'chord-selector active';
-    const chords = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
-    selector.innerHTML = `
-      <div class="selector-grid">
-        ${chords.map(c => `<button class="selector-btn" data-action="select-chord" data-value="${c}">${c}</button>`).join('')}
+  renderBar(bar, barNumber) {
+    return `
+      <div class="bar" data-bar-id="${bar.id}">
+        <div class="bar-number">${barNumber}</div>
+        ${bar.repeat ? `<div class="bar-repeat" data-bar-id="${bar.id}">${bar.repeat}</div>` : ''}
+        <button class="remove-bar" data-bar-id="${bar.id}" title="Remove bar">×</button>
+        <div class="slots">
+          ${bar.slots.map((slot, index) => this.renderSlot(slot, bar.id, index)).join('')}
+        </div>
       </div>
     `;
-    slotEl.appendChild(selector);
-    this.currentEdit = slotEl.dataset;
   }
 
-  openExtensionSelector(slotEl) {
-    this.closeAllSelectors();
-    document.body.classList.add('selector-open');
+  renderSlot(slot, barId, slotIndex) {
+    if (!slot) {
+      return `
+        <div class="slot" data-bar-id="${barId}" data-slot-index="${slotIndex}">
+          <span class="empty-slot">+</span>
+        </div>
+      `;
+    }
 
-    const selector = document.createElement('div');
-    selector.className = 'extension-selector active';
-    const extensions = ['7', 'maj7', 'm7', '9', 'add9', 'sus2', 'sus4', '6', '11', '13'];
-    selector.innerHTML = `
-      <div class="selector-grid">
-        ${extensions.map(e => `<button class="selector-btn" data-action="select-extension" data-value="${e}">${e}</button>`).join('')}
-      </div>
-      <div class="extension-footer">
-        <button class="btn-clear-ext" data-action="select-extension" data-value="">Clear Extension</button>
+    return `
+      <div class="slot has-chord" data-bar-id="${barId}" data-slot-index="${slotIndex}" data-chord="${slot.chord}">
+        <span class="chord">${slot.chord}</span>
+        ${slot.extension ? `<span class="chord-extension">${slot.extension}</span>` : ''}
+        <button class="delete-btn" title="Delete chord">×</button>
       </div>
     `;
-    slotEl.appendChild(selector);
-    this.currentEdit = slotEl.dataset;
   }
 
-  closeAllSelectors() {
-    document.querySelectorAll('.chord-selector, .extension-selector').forEach(el => el.remove());
-    document.body.classList.remove('selector-open');
-    this.currentEdit = null;
+  // ===== AUDIO SYSTEM =====
+  initAudio() {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
   }
 
-  // ===== EVENT HANDLING =====
-  setupEventListeners() {
-    document.addEventListener('click', e => {
-      const target = e.target;
-      const actionEl = target.closest('[data-action]');
-      const sectionItemEl = target.closest('.section-list-item');
-
-      if (actionEl) {
-        e.stopPropagation();
-        const action = actionEl.dataset.action;
-        const value = actionEl.dataset.value;
-        const slotEl = target.closest('.slot');
-        const barEl = target.closest('.bar');
-
-        switch (action) {
-          case 'select-chord':
-            this.updateChord(this.currentEdit.sectionId, this.currentEdit.barId, this.currentEdit.slotIndex, { root: value });
-            this.closeAllSelectors();
-            break;
-          case 'select-extension':
-            this.updateChord(this.currentEdit.sectionId, this.currentEdit.barId, this.currentEdit.slotIndex, { extension: value });
-            this.closeAllSelectors();
-            break;
-          case 'delete-chord':
-            this.updateChord(slotEl.dataset.sectionId, slotEl.dataset.barId, slotEl.dataset.slotIndex, null);
-            break;
-          case 'add-section':
-            this.addSection();
-            break;
-          case 'delete-section':
-            this.deleteSection(target.closest('.section-list-item').dataset.id);
-            break;
-          case 'toggle-repeat-start':
-            this.toggleRepeat(barEl.dataset.id, 'repeatStart');
-            break;
-          case 'toggle-repeat-end':
-            this.toggleRepeat(barEl.dataset.id, 'repeatEnd');
-            break;
-        }
-      } else if (sectionItemEl) {
-        this.setActiveSection(sectionItemEl.dataset.id);
-      } else if (target.closest('.slot')) {
-        this.openChordSelector(target.closest('.slot'));
-      } else if (!target.closest('.chord-selector, .extension-selector')) {
-        this.closeAllSelectors();
-      }
-    });
-
-    document.addEventListener('contextmenu', e => {
-      const slotEl = e.target.closest('.slot');
-      if (slotEl && slotEl.classList.contains('has-chord')) {
-        e.preventDefault();
-        this.openExtensionSelector(slotEl);
-      }
-    });
-
-    document.addEventListener('input', e => {
-      const target = e.target;
-      if (target.dataset.field) {
-        this.updateProgressionField(target.dataset.field, target.value);
-      } else if (target.dataset.action === 'update-section-name') {
-        const sectionId = target.closest('.section-list-item').dataset.id;
-        this.updateSectionName(sectionId, target.value);
-      }
-    });
+  playChordSound(chord) {
+    if (!this.audioContext) return;
     
-    document.addEventListener('change', e => {
-        const target = e.target;
-        if (target.dataset.field) {
-            this.updateProgressionField(target.dataset.field, target.value);
-        }
+    const rootNote = this.getRootNote(chord);
+    const frequency = this.noteFrequencies[rootNote];
+    
+    if (frequency) {
+      this.playTone(frequency, 0.3);
+    }
+  }
+
+  getRootNote(romanNumeral) {
+    const scaleNotes = {
+      'C': ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+      'C#': ['C#', 'D#', 'F', 'F#', 'G#', 'A#', 'C'],
+      'Db': ['Db', 'Eb', 'F', 'Gb', 'Ab', 'Bb', 'C'],
+      'D': ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'],
+      'D#': ['D#', 'F', 'G', 'G#', 'A#', 'C', 'D'],
+      'Eb': ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D'],
+      'E': ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#'],
+      'F': ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'],
+      'F#': ['F#', 'G#', 'A#', 'B', 'C#', 'D#', 'F'],
+      'Gb': ['Gb', 'Ab', 'Bb', 'B', 'Db', 'Eb', 'F'],
+      'G': ['G', 'A', 'B', 'C', 'D', 'E', 'F#'],
+      'G#': ['G#', 'A#', 'C', 'C#', 'D#', 'F', 'G'],
+      'Ab': ['Ab', 'Bb', 'C', 'Db', 'Eb', 'F', 'G'],
+      'A': ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#'],
+      'A#': ['A#', 'C', 'D', 'D#', 'F', 'G', 'A'],
+      'Bb': ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A'],
+      'B': ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#']
+    };
+    
+    const scale = scaleNotes[this.key];
+    const romanMap = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+    const index = romanMap.indexOf(romanNumeral.replace(/[^IViv°]/g, ''));
+    
+    return scale[index] || this.key;
+  }
+
+  playTone(frequency, duration) {
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+    oscillator.type = 'triangle';
+    
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+    
+    oscillator.start(this.audioContext.currentTime);
+    oscillator.stop(this.audioContext.currentTime + duration);
+  }
+
+  // ===== PLAYBACK SYSTEM =====
+  togglePlayback() {
+    if (this.isPlaying) {
+      this.stopPlayback();
+    } else {
+      this.startPlayback();
+    }
+  }
+
+  startPlayback() {
+    if (this.bars.length === 0) return;
+    
+    this.isPlaying = true;
+    this.playPosition = 0;
+    this.elements.playBtn.classList.add('playing');
+    this.elements.playBtn.innerHTML = '<span>⏸</span> Pause';
+    this.elements.playhead.classList.add('active');
+    
+    this.playNextBeat();
+  }
+
+  stopPlayback() {
+    this.isPlaying = false;
+    clearTimeout(this.playTimeout);
+    this.elements.playBtn.classList.remove('playing');
+    this.elements.playBtn.innerHTML = '<span>▶</span> Play';
+    this.elements.playhead.classList.remove('active');
+    this.clearPlayingSlots();
+  }
+
+  playNextBeat() {
+    if (!this.isPlaying) return;
+    
+    this.clearPlayingSlots();
+    
+    const totalSlots = this.getTotalSlots();
+    if (this.playPosition >= totalSlots) {
+      this.playPosition = 0; // Loop
+    }
+    
+    const { barIndex, slotIndex } = this.getBarAndSlotFromPosition(this.playPosition);
+    this.highlightCurrentSlot(barIndex, slotIndex);
+    this.updatePlayhead();
+    
+    const bar = this.bars[barIndex];
+    if (bar && bar.slots[slotIndex]) {
+      this.playChordSound(bar.slots[slotIndex].chord);
+    }
+    
+    this.playPosition++;
+    
+    const beatDuration = (60 / this.bpm) * 1000; // ms per beat
+    this.playTimeout = setTimeout(() => this.playNextBeat(), beatDuration);
+  }
+
+  getTotalSlots() {
+    return this.bars.reduce((total, bar) => total + 4, 0);
+  }
+
+  getBarAndSlotFromPosition(position) {
+    const barIndex = Math.floor(position / 4);
+    const slotIndex = position % 4;
+    return { barIndex, slotIndex };
+  }
+
+  highlightCurrentSlot(barIndex, slotIndex) {
+    const bar = this.bars[barIndex];
+    if (!bar) return;
+    
+    const slot = document.querySelector(`[data-bar-id="${bar.id}"][data-slot-index="${slotIndex}"]`);
+    if (slot) {
+      slot.classList.add('playing');
+    }
+  }
+
+  clearPlayingSlots() {
+    document.querySelectorAll('.slot.playing').forEach(slot => {
+      slot.classList.remove('playing');
     });
+  }
 
-    document.getElementById('playBtn').addEventListener('click', () => this.togglePlayback());
-    document.querySelector('.btn-import').addEventListener('click', () => this.importJSON());
-    document.querySelector('.btn-export').addEventListener('click', () => this.exportJSON());
+  updatePlayhead() {
+    const { barIndex, slotIndex } = this.getBarAndSlotFromPosition(this.playPosition);
+    const bar = this.bars[barIndex];
+    if (!bar) return;
+    
+    const slot = document.querySelector(`[data-bar-id="${bar.id}"][data-slot-index="${slotIndex}"]`);
+    if (slot) {
+      const rect = slot.getBoundingClientRect();
+      this.elements.playhead.style.left = rect.left + 'px';
+    }
+  }
 
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') this.closeAllSelectors();
-      if (e.code === 'Space' && !e.target.matches('input, select')) {
+  // ===== UTILITIES =====
+  clearAll() {
+    if (confirm('Clear all bars? This cannot be undone.')) {
+      this.bars = [];
+      this.stopPlayback();
+      this.addBar(); // Add one empty bar
+      this.saveData();
+      this.render();
+    }
+  }
+
+  exportData() {
+    const data = {
+      songTitle: this.songTitle,
+      key: this.key,
+      bpm: this.bpm,
+      bars: this.bars,
+      timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.songTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_progression.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        this.songTitle = data.songTitle || 'Imported Song';
+        this.key = data.key || 'C';
+        this.bpm = data.bpm || 120;
+        this.bars = data.bars || [];
+        
+        this.stopPlayback();
+        this.loadData();
+        this.saveData();
+        this.render();
+        
+        console.log('✅ Song imported successfully');
+      } catch (error) {
+        alert('Error importing file. Please check the format.');
+        console.error('Import error:', error);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  handleKeyboard(e) {
+    if (e.target.tagName === 'INPUT') return; // Don't interfere with input fields
+    
+    switch (e.code) {
+      case 'Space':
         e.preventDefault();
         this.togglePlayback();
-      }
-    });
-  }
-
-  importJSON() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,application/json';
-    input.onchange = e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const imported = JSON.parse(event.target.result);
-          if (imported && Array.isArray(imported.sections)) {
-            this.progression = { ...this.getDefaultProgression(), ...imported };
-            this.activeSectionId = this.progression.sections[0]?.id || null;
-            this.stopPlayback();
-            this.render();
-          } else {
-            alert('Invalid file format.');
-          }
-        } catch (err) {
-          alert(`Error reading file: ${err.message}`);
+        break;
+      case 'Escape':
+        this.closeModals();
+        break;
+      case 'KeyN':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          this.addBar();
         }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  }
-
-  exportJSON() {
-    const dataStr = JSON.stringify(this.progression, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const title = this.progression.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'progression';
-    link.download = `${title}.json`;
-    link.href = url;
-    link.click();
-    URL.revokeObjectURL(url);
+        break;
+    }
   }
 }
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
-  window.chordApp = new ChordProgressionApp();
+  window.app = new ChordProgressionApp();
 });
+
+// Service Worker Registration (for PWA)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => console.log('SW registered'))
+      .catch(error => console.log('SW registration failed'));
+  });
+}
